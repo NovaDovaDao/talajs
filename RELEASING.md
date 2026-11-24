@@ -19,9 +19,8 @@ Try it locally without publishing: `pnpm release:dry-run`.
    pnpm changeset version         # 0.0.0 → 0.1.0, writes CHANGELOGs
    pnpm install --lockfile-only
    git commit -am "chore: version packages"
-   pnpm release                   # builds, then publishes all four in dependency order
-   pnpm changeset git-tag         # tags @talajs/*@0.1.0
-   git push --follow-tags
+   pnpm release                   # builds, publishes all four in dependency order, and tags them
+   git push talajs HEAD:main && git push talajs --tags
    ```
 3. **Trusted publishers.** This is set per package, not on the org page. Signed in to npmjs.com as a package owner, open each package's page (e.g. https://www.npmjs.com/package/@talajs/contracts), go to its **Settings** tab (`…/package/@talajs/contracts/access`), find **Trusted Publisher**, choose **GitHub Actions**, and enter organization `NovaDovaDao`, repository `talajs`, workflow filename `release.yml` (no environment). Repeat for `@talajs/db`, `@talajs/api` and `@talajs/admin`. A new configuration must be used for a successful publish within 2 days. Afterwards, consider *Publishing access → Require two-factor authentication and disallow tokens*.
 

@@ -5,7 +5,8 @@
 // tarball is published with the npm CLI, which supports npm trusted publishing (GitHub OIDC,
 // with provenance) and falls back to a token or `npm login` locally.
 //
-// Prints `New tag: <name>@<version>` lines so changesets/action creates git tags and releases.
+// Creates a git tag `<name>@<version>` for each published package and prints `New tag:` lines,
+// so changesets/action pushes the tags and creates GitHub releases.
 //
 //   node scripts/publish.mjs            publish
 //   node scripts/publish.mjs --dry-run  pack and run `npm publish --dry-run`
@@ -89,5 +90,11 @@ for (const dir of order) {
       stdio: 'inherit',
     },
   )
-  if (!dryRun) console.log(`New tag: ${name}@${version}`)
+  if (dryRun) continue
+  // Tag the release commit like `changeset publish` does; changesets/action pushes the tags
+  // listed on "New tag:" lines and creates GitHub releases from them.
+  const tagName = `${name}@${version}`
+  const existing = run('git', ['tag', '--list', tagName]).trim()
+  if (!existing) execFileSync('git', ['tag', tagName], { stdio: 'inherit' })
+  console.log(`New tag: ${tagName}`)
 }
