@@ -1,0 +1,25 @@
+{
+  "name": "@talajs/example-worker",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "types": "wrangler types",
+    "test": "vitest run",
+    "typecheck": "wrangler types >/dev/null && tsc --noEmit"
+  },
+  "dependencies": {
+    "@talajs/admin": "workspace:*",
+    "@talajs/api": "workspace:*",
+    "@talajs/contracts": "workspace:*",
+    "@talajs/db": "workspace:*",
+    "hono": "^4.13.18"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.8.2",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
+    "wrangler": "4.162.0"
+  }
+}

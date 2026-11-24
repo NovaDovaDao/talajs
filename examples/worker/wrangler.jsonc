@@ -1,0 +1,54 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tala-example",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-13",
+  // node-postgres (used through Hyperdrive) needs Node.js compatibility.
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    // Replace with your Zero Trust team domain and the Access application's AUD tag.
+    "ACCESS_TEAM_DOMAIN": "example.cloudflareaccess.com",
+    "ACCESS_AUD": "replace-with-access-aud-tag",
+    "OIDC_ISSUER": "https://idp.example.com/",
+    "OIDC_AUDIENCE": "tala-api",
+    // Sender for receipts, on a domain verified in Resend.
+    "RECEIPTS_FROM": "Receipts <receipts@example.com>",
+    // How the admin at /admin signs in: "access" (Cloudflare Access), "oidc" or "token" (dev).
+    // Set ADMIN_AUTH_MODE=token in .dev.vars for local development.
+    "ADMIN_AUTH_MODE": "access"
+  },
+  // The admin's static build, served by serveAdmin() under /admin. run_worker_first keeps the
+  // asset layer from answering any other path (the API, your own routes).
+  "assets": {
+    "directory": "../../packages/admin/dist",
+    "binding": "ADMIN",
+    "run_worker_first": true
+  },
+  // Secrets (not in this file): TALA_SERVICE_TOKEN — `wrangler secret put TALA_SERVICE_TOKEN`,
+  // or `.dev.vars` locally. Optional: RESEND_API_KEY, to email receipts.
+  "secrets": { "required": ["TALA_SERVICE_TOKEN"] },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      // Replace with your Hyperdrive config id before deploying (`wrangler hyperdrive create`).
+      "id": "00000000000000000000000000000000",
+      // Used by `wrangler dev` and tests; override with
+      // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE.
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5432/tala_test"
+    }
+  ],
+  // Domain events (create with `wrangler queues create tala-events` and `tala-events-dlq`).
+  "queues": {
+    "producers": [{ "binding": "TALA_EVENTS", "queue": "tala-events" }],
+    "consumers": [
+      {
+        "queue": "tala-events",
+        "max_batch_size": 10,
+        "max_retries": 10,
+        "dead_letter_queue": "tala-events-dlq"
+      }
+    ]
+  },
+  // Every 10 minutes, re-queue events that were never processed.
+  "triggers": { "crons": ["*/10 * * * *"] }
+}

@@ -1,0 +1,52 @@
+name: Release
+
+# On main: if there are pending changesets, open (or update) a "Version packages" PR. When that PR
+# is merged, publish every package whose version isn't on npm yet, with provenance, via npm
+# trusted publishing (no npm token). See RELEASING.md.
+
+on:
+  push:
+    branches: [main]
+
+concurrency: release-${{ github.ref }}
+
+permissions:
+  contents: write # tags and GitHub releases
+  pull-requests: write # the "Version packages" PR
+  id-token: write # npm trusted publishing (OIDC) and provenance
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: tala
+          POSTGRES_PASSWORD: tala
+          POSTGRES_DB: tala_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tala" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TALA_TEST_DATABASE_URL: postgres://tala:tala@localhost:5432/tala_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      # Trusted publishing needs npm >= 11.5.1.
+      - run: npm install -g npm@^11.5.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

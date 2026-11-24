@@ -1,0 +1,30 @@
+{
+  "name": "tala-monorepo",
+  "private": true,
+  "description": "A lean, multi-tenant commerce core for caf\u00e9s and lounges, built for Cloudflare.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test",
+    "changeset": "changeset",
+    "release": "pnpm build && node scripts/publish.mjs",
+    "release:dry-run": "pnpm build && node scripts/publish.mjs --dry-run",
+    "version-packages": "changeset version && pnpm install --lockfile-only"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@changesets/cli": "3.0.3",
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

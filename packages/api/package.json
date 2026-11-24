@@ -1,0 +1,81 @@
+{
+  "name": "@talajs/api",
+  "version": "0.0.0",
+  "description": "Tala's HTTP API as a mountable Hono app factory for Cloudflare Workers.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/api#readme",
+  "bugs": {
+    "url": "https://github.com/NovaDovaDao/talajs/issues"
+  },
+  "keywords": [
+    "hono",
+    "cloudflare-workers",
+    "pos",
+    "commerce",
+    "cafe",
+    "openapi"
+  ],
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NovaDovaDao/talajs.git",
+    "directory": "packages/api"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@talajs/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./auth/cloudflare-access": {
+      "@talajs/source": "./src/auth/cloudflare-access.ts",
+      "types": "./dist/auth/cloudflare-access.d.ts",
+      "default": "./dist/auth/cloudflare-access.js"
+    },
+    "./auth/oidc": {
+      "@talajs/source": "./src/auth/oidc.ts",
+      "types": "./dist/auth/oidc.d.ts",
+      "default": "./dist/auth/oidc.js"
+    },
+    "./auth/service-token": {
+      "@talajs/source": "./src/auth/service-token.ts",
+      "types": "./dist/auth/service-token.d.ts",
+      "default": "./dist/auth/service-token.js"
+    },
+    "./email/resend": {
+      "@talajs/source": "./src/email/resend.ts",
+      "types": "./dist/email/resend.d.ts",
+      "default": "./dist/email/resend.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^1.6.3",
+    "@talajs/contracts": "workspace:*",
+    "@talajs/db": "workspace:*",
+    "hono": "^4.13.18",
+    "jose": "^6.2.17",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.8.2",
+    "@cloudflare/workers-types": "^5.20261118.1",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
+    "wrangler": "4.162.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

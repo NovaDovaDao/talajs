@@ -1,0 +1,51 @@
+{
+  "name": "@talajs/contracts",
+  "version": "0.0.0",
+  "description": "Zod contracts, money/tax math and sync protocol types for Tala.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/contracts#readme",
+  "bugs": {
+    "url": "https://github.com/NovaDovaDao/talajs/issues"
+  },
+  "keywords": [
+    "zod",
+    "pos",
+    "commerce",
+    "cafe",
+    "money",
+    "tax"
+  ],
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NovaDovaDao/talajs.git",
+    "directory": "packages/contracts"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@talajs/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

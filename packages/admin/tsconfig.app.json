@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    // shadcn components pass `undefined` to optional props freely.
+    "exactOptionalPropertyTypes": false,
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}

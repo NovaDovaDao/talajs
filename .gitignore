@@ -1,0 +1,16 @@
+node_modules
+dist
+generated
+coverage
+*.log
+*.local
+.env
+.env.*
+!.env.example
+.dev.vars
+.wrangler
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+*.tsbuildinfo

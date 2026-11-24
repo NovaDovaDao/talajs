@@ -1,0 +1,80 @@
+{
+  "name": "@talajs/db",
+  "version": "0.0.0",
+  "description": "Tala's Postgres schema, SQL migrations, migration CLI and tenant-scoped Prisma client.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/db#readme",
+  "bugs": {
+    "url": "https://github.com/NovaDovaDao/talajs/issues"
+  },
+  "keywords": [
+    "prisma",
+    "postgres",
+    "neon",
+    "hyperdrive",
+    "cloudflare",
+    "pos",
+    "commerce"
+  ],
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NovaDovaDao/talajs.git",
+    "directory": "packages/db"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@talajs/source": {
+        "workerd": "./src/index.workerd.ts",
+        "default": "./src/index.node.ts"
+      },
+      "workerd": {
+        "types": "./dist/index.workerd.d.ts",
+        "default": "./dist/index.workerd.js"
+      },
+      "types": "./dist/index.node.d.ts",
+      "default": "./dist/index.node.js"
+    },
+    "./migrate": {
+      "@talajs/source": "./src/migrate.ts",
+      "types": "./dist/migrate.d.ts",
+      "default": "./dist/migrate.js"
+    },
+    "./migrations/*": "./migrations/*"
+  },
+  "bin": {
+    "tala-db": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "prisma/schema.prisma"
+  ],
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json && node scripts/copy-generated-assets.mjs",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "test": "prisma generate && vitest run",
+    "migration:diff": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.1",
+    "@prisma/adapter-neon": "7.10.1",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@talajs/contracts": "workspace:*",
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
+    "prisma": "7.10.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

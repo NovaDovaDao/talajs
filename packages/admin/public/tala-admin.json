@@ -1,0 +1,4 @@
+{
+  "apiBase": "/tala",
+  "auth": { "mode": "token" }
+}

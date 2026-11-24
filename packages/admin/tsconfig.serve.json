@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "serve",
+    "outDir": "server",
+    "lib": ["ES2023", "DOM"],
+    "types": [],
+    "sourceMap": false,
+    "declarationMap": false
+  },
+  "include": ["serve"],
+  "exclude": ["serve/**/*.test.ts"]
+}
