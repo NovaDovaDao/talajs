@@ -257,7 +257,7 @@ Each one ends green in CI with a conventional-commit history on `feat/cloudflare
 | **M4** | Payments and async ✅ | cash refunds (with optional restock); the payment adapter interface (no card or crypto adapters yet, see §7.7); domain events → Queue → idempotent consumer → `hooks.onEvent`; Resend receipts; duplicate and replay tests. Provider webhooks wait for a real adapter. **The old NestJS `packages/api` is deleted here.** |
 | **M5** | Terminals and sync ✅ | pairing, opaque tokens, revoke/rotate; `/sync/push` with dedupe and the review queue, `/sync/pull` change feed; protocol doc; a fake-terminal test suite (offline sale → push twice → one order; conflicting tab edit → review item) |
 | **M6** | Admin port ✅ (React, see §7.8) | Vue/daisyUI upgrade, typed client, runtime config, Access/OIDC/none auth modes; views for catalog, orders/tabs, customers, terminals, review queue, payment-account onboarding; served from static assets in the example. **The old `packages/web` is deleted here.** |
-| **M7** | Publish 0.1.0 (prepared; publishing waits on §8) | README, docs, adapters guide, example; Changesets release with provenance; first consumer integrates from npm |
+| **M7** | Publish 0.1.0 ✅ (2026-11-24) | README, docs, adapters guide, example; Changesets release with provenance; first consumer integrates from npm |
 
 M1 is the only milestone with real technical risk (Prisma 7 on workerd and transaction support for each driver). If the spike turns up a blocker, we'll revisit before starting M2.
 
@@ -433,8 +433,9 @@ Things only the maintainer can do. Updated at each milestone; tick them off here
 **Before 0.1.0 (M7)**
 - [x] Claim the npm org: `@talajs` (2026-11-22; `@tala` was taken).
 - [x] Public repository: `NovaDovaDao/talajs` (2026-11-23), with a fresh history.
-- [ ] Push the initial commit to `NovaDovaDao/talajs`.
-- [ ] First publish of 0.1.0 and npm trusted-publisher setup for the four packages: see `RELEASING.md`.
+- [x] Push the initial commit to `NovaDovaDao/talajs` (2026-11-23).
+- [x] First publish: 0.1.0 of all four packages, from the maintainer's machine (2026-11-24; no provenance on this version).
+- [ ] npm trusted publishing for the four packages, so later releases come from GitHub Actions with provenance: see `RELEASING.md`.
 - [ ] Create a Neon project, so the open M1 item can be checked: the WebSocket driver, cold start, and scale to zero (including Hyperdrive's pooled connections).
 - [ ] Decide on multi-store stock (M3 known limitation): add a per-store link table before 0.1.0, or document it.
 
