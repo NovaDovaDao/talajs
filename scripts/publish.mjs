@@ -10,11 +10,32 @@
 //   node scripts/publish.mjs            publish
 //   node scripts/publish.mjs --dry-run  pack and run `npm publish --dry-run`
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const dryRun = process.argv.includes('--dry-run')
+const ci = process.env.GITHUB_ACTIONS === 'true'
+
+// Enough context to debug a failed publish from the CI log, without printing any secret values.
+if (ci) {
+  const has = (name) => (process.env[name] ? 'set' : 'missing')
+  console.log('publish environment:')
+  console.log(
+    `  node ${process.version}, npm ${execFileSync('npm', ['-v'], { encoding: 'utf8' }).trim()}`,
+  )
+  console.log(
+    `  OIDC: ACTIONS_ID_TOKEN_REQUEST_URL ${has('ACTIONS_ID_TOKEN_REQUEST_URL')}, ACTIONS_ID_TOKEN_REQUEST_TOKEN ${has('ACTIONS_ID_TOKEN_REQUEST_TOKEN')}`,
+  )
+  console.log(`  NPM_TOKEN ${has('NPM_TOKEN')}, NODE_AUTH_TOKEN ${has('NODE_AUTH_TOKEN')}`)
+  const npmConfig = Object.keys(process.env).filter((k) =>
+    k.toLowerCase().startsWith('npm_config_'),
+  )
+  console.log(`  npm_config_* names: ${npmConfig.join(', ') || 'none'}`)
+  for (const file of [join(homedir(), '.npmrc'), '.npmrc']) {
+    console.log(`  ${file}: ${existsSync(file) ? 'exists' : 'absent'}`)
+  }
+}
 // Dependency order: a package is published after the packages it depends on.
 const order = ['contracts', 'db', 'api', 'admin']
 const out = mkdtempSync(join(tmpdir(), 'talajs-pack-'))
@@ -53,7 +74,17 @@ for (const dir of order) {
   console.log(`${dryRun ? 'Would publish' : 'Publishing'} ${name}@${version} (${tag})`)
   execFileSync(
     'npm',
-    ['publish', tarball, '--access', 'public', '--tag', tag, ...(dryRun ? ['--dry-run'] : [])],
+    [
+      'publish',
+      tarball,
+      '--access',
+      'public',
+      '--tag',
+      tag,
+      // In CI, log npm's trusted-publishing (OIDC) exchange so auth failures are diagnosable.
+      ...(ci ? ['--loglevel', 'verbose'] : []),
+      ...(dryRun ? ['--dry-run'] : []),
+    ],
     {
       stdio: 'inherit',
     },
