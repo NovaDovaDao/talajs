@@ -1,5 +1,11 @@
 # @talajs/admin
 
+## 0.1.1
+
+### Patch Changes
+
+- e5f4fb8: Published `package.json` files no longer declare the development-only `@talajs/source` export condition, which pointed at TypeScript sources that aren't included in the packages.
+
 ## 0.1.0
 
 ### Minor Changes

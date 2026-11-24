@@ -1,6 +1,6 @@
 {
   "name": "@talajs/db",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Tala's Postgres schema, SQL migrations, migration CLI and tenant-scoped Prisma client.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/db#readme",
