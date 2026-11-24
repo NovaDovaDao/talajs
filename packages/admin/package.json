@@ -73,6 +73,14 @@
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./server/index.d.ts",
+        "default": "./server/index.js"
+      },
+      "./dist/*": "./dist/*",
+      "./package.json": "./package.json"
+    }
   }
 }

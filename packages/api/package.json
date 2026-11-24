@@ -76,6 +76,28 @@
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./auth/cloudflare-access": {
+        "types": "./dist/auth/cloudflare-access.d.ts",
+        "default": "./dist/auth/cloudflare-access.js"
+      },
+      "./auth/oidc": {
+        "types": "./dist/auth/oidc.d.ts",
+        "default": "./dist/auth/oidc.js"
+      },
+      "./auth/service-token": {
+        "types": "./dist/auth/service-token.d.ts",
+        "default": "./dist/auth/service-token.js"
+      },
+      "./email/resend": {
+        "types": "./dist/email/resend.d.ts",
+        "default": "./dist/email/resend.js"
+      }
+    }
   }
 }

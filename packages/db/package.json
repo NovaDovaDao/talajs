@@ -75,6 +75,21 @@
     "node": ">=22"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "workerd": {
+          "types": "./dist/index.workerd.d.ts",
+          "default": "./dist/index.workerd.js"
+        },
+        "types": "./dist/index.node.d.ts",
+        "default": "./dist/index.node.js"
+      },
+      "./migrate": {
+        "types": "./dist/migrate.d.ts",
+        "default": "./dist/migrate.js"
+      },
+      "./migrations/*": "./migrations/*"
+    }
   }
 }

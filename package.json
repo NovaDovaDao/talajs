@@ -12,7 +12,7 @@
     "build": "pnpm -r --filter './packages/*' build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "lint": "biome check .",
+    "lint": "biome check . && node scripts/publish-exports.mjs --check",
     "format": "biome check --write .",
     "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test",
     "changeset": "changeset",
