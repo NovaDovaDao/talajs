@@ -1,6 +1,6 @@
 {
   "name": "@talajs/api",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Tala's HTTP API as a mountable Hono app factory for Cloudflare Workers.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/api#readme",

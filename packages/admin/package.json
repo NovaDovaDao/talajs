@@ -1,6 +1,6 @@
 {
   "name": "@talajs/admin",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Tala's admin web app: a static React build, configured at runtime.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/admin#readme",
