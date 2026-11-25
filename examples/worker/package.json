@@ -12,6 +12,7 @@
   "dependencies": {
     "@talajs/admin": "workspace:*",
     "@talajs/api": "workspace:*",
+    "@talajs/auth": "workspace:*",
     "@talajs/contracts": "workspace:*",
     "@talajs/db": "workspace:*",
     "hono": "^4.13.18"

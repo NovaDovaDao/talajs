@@ -15,7 +15,14 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: './wrangler.jsonc' },
-      miniflare: { hyperdrives: { HYPERDRIVE: databaseUrl } },
+      miniflare: {
+        hyperdrives: { HYPERDRIVE: databaseUrl },
+        // Test-only values for the Worker's secrets.
+        bindings: {
+          TALA_SERVICE_TOKEN: 'test-service-token-0123456789abcdef0123456789',
+          BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret-0123',
+        },
+      },
     }),
   ],
   test: {

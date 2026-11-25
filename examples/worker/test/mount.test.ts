@@ -35,8 +35,14 @@ describe('admin mounted at /admin', () => {
   })
 
   it('serves runtime config from the worker', async () => {
-    const res = await exports.default.fetch('http://example.com/admin/tala-admin.json')
-    expect(await res.json()).toEqual({ apiBase: '/tala', auth: { mode: 'access' } })
+    const res = await exports.default.fetch('https://pos.example.com/admin/tala-admin.json')
+    expect(await res.json()).toEqual({
+      apiBase: '/tala',
+      auth: { mode: 'better-auth', methods: { magicLink: true, password: false } },
+    })
+    // Operators reach the same Worker on a hostname protected by Cloudflare Access.
+    const ops = await exports.default.fetch('https://ops.example.com/admin/tala-admin.json')
+    expect(await ops.json()).toEqual({ apiBase: '/tala', auth: { mode: 'access' } })
   })
 
   it('serves built assets and 404s missing files', async () => {

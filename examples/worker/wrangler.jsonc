@@ -6,6 +6,13 @@
   // node-postgres (used through Hyperdrive) needs Node.js compatibility.
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
+    // The public origin merchants use; sign-in and invitation links point here.
+    "PUBLIC_ORIGIN": "https://pos.example.com",
+    // Sender for sign-in links and invitations, on a domain verified in Resend.
+    "AUTH_FROM": "Sign in <signin@example.com>",
+    // A second hostname for platform operators, routed to this Worker and protected by a
+    // Cloudflare Access application. Requests on it get the Access-mode admin.
+    "OPERATOR_HOST": "ops.example.com",
     // Replace with your Zero Trust team domain and the Access application's AUD tag.
     "ACCESS_TEAM_DOMAIN": "example.cloudflareaccess.com",
     "ACCESS_AUD": "replace-with-access-aud-tag",
@@ -13,9 +20,9 @@
     "OIDC_AUDIENCE": "tala-api",
     // Sender for receipts, on a domain verified in Resend.
     "RECEIPTS_FROM": "Receipts <receipts@example.com>",
-    // How the admin at /admin signs in: "access" (Cloudflare Access), "oidc" or "token" (dev).
-    // Set ADMIN_AUTH_MODE=token in .dev.vars for local development.
-    "ADMIN_AUTH_MODE": "access"
+    // How merchants sign in to the admin: "better-auth" (built-in), or "token" (paste a service
+    // token; set ADMIN_AUTH_MODE=token in .dev.vars for local development).
+    "ADMIN_AUTH_MODE": "better-auth"
   },
   // The admin's static build, served by serveAdmin() under /admin. run_worker_first keeps the
   // asset layer from answering any other path (the API, your own routes).
@@ -24,9 +31,12 @@
     "binding": "ADMIN",
     "run_worker_first": true
   },
-  // Secrets (not in this file): TALA_SERVICE_TOKEN — `wrangler secret put TALA_SERVICE_TOKEN`,
-  // or `.dev.vars` locally. Optional: RESEND_API_KEY, to email receipts.
-  "secrets": { "required": ["TALA_SERVICE_TOKEN"] },
+  // Secrets (not in this file): `wrangler secret put …`, or `.dev.vars` locally.
+  // - TALA_SERVICE_TOKEN: for provisioning and automation.
+  // - BETTER_AUTH_SECRET: signs sign-in sessions; at least 32 random characters.
+  // - RESEND_API_KEY (optional): sends sign-in links, invitations and receipts. Without it they
+  //   are only logged, which is fine locally but means nobody can sign in in production.
+  "secrets": { "required": ["TALA_SERVICE_TOKEN", "BETTER_AUTH_SECRET"] },
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
