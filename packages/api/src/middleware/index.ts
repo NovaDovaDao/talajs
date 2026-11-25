@@ -165,7 +165,8 @@ async function refreshProfile(
   identity: Identity,
 ) {
   const email = identity.emailVerified ? (identity.email ?? null) : membership.email
-  const displayName = membership.displayName ?? identity.name ?? null
+  // A person's own name wins; a manager-set name covers identity sources without one.
+  const displayName = identity.name ?? membership.displayName
   if (email === membership.email && displayName === membership.displayName) return
   await db.client.$transaction(async (tx) => {
     await tx.membership.update({ where: { id: membership.id }, data: { email, displayName } })

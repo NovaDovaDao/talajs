@@ -8,9 +8,9 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApiError, createApi } from '@/lib/api'
 import { createAuth } from '@/lib/auth'
-import { loadConfig } from '@/lib/config'
+import { basePath, loadConfig } from '@/lib/config'
 import { AppProvider } from '@/lib/session'
-import { createAppRouter } from './router'
+import { createAppRouter, PUBLIC_PATHS } from './router'
 
 async function start() {
   const root = createRoot(document.getElementById('root') as HTMLElement)
@@ -20,7 +20,11 @@ async function start() {
     await auth.completeSignIn()
     const router = createAppRouter()
     const api = createApi(config.apiBase, auth, () => {
-      if (!location.pathname.endsWith('/sign-in')) router.navigate('/sign-in')
+      if (PUBLIC_PATHS.test(location.pathname)) return
+      const here = location.pathname.slice(basePath().length - 1) + location.search
+      router.navigate(
+        here && here !== '/' ? `/sign-in?next=${encodeURIComponent(here)}` : '/sign-in',
+      )
     })
     const queryClient = new QueryClient({
       defaultOptions: {

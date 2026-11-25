@@ -22,6 +22,14 @@ export interface AdminRuntimeConfig {
     | { mode: 'access' }
     | { mode: 'oidc'; issuer: string; clientId: string; scope?: string; audience?: string }
     | { mode: 'token' }
+    | {
+        /** Built-in sign-in with @talajs/auth, on the same origin. */
+        mode: 'better-auth'
+        /** Where the auth handler is mounted. Default `<apiBase>/auth`. */
+        baseURL?: string
+        /** Match `createTalaAuth`'s `methods`. Default: magic link only. */
+        methods?: { magicLink?: boolean; password?: boolean; google?: boolean }
+      }
 }
 
 /** Structurally compatible with Cloudflare's `Fetcher` (the assets binding). */
