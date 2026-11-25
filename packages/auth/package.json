@@ -1,6 +1,6 @@
 {
   "name": "@talajs/auth",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Optional built-in sign-in for Tala merchants and staff (magic link, password, Google), powered by Better Auth.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/auth#readme",
