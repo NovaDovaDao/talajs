@@ -21,6 +21,23 @@ export const AdminConfig = z.object({
     }),
     /** Paste a bearer token (a service token or an OIDC access token). For development. */
     z.object({ mode: z.literal('token') }),
+    /**
+     * Built-in sign-in with @talajs/auth (Better Auth), on the same origin. The session is an
+     * httpOnly cookie; the admin never sees a token.
+     */
+    z.object({
+      mode: z.literal('better-auth'),
+      /** Where the auth handler is mounted. Default: `<apiBase>/auth`. */
+      baseURL: z.string().optional(),
+      /** Match `createTalaAuth`'s `methods`, so the sign-in screen offers the same. */
+      methods: z
+        .object({
+          magicLink: z.boolean().default(true),
+          password: z.boolean().default(false),
+          google: z.boolean().default(false),
+        })
+        .default({ magicLink: true, password: false, google: false }),
+    }),
   ]),
 })
 export type AdminConfig = z.infer<typeof AdminConfig>

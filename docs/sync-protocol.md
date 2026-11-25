@@ -31,7 +31,8 @@ The register generates every id itself, as UUIDv7: order, line, payment, and eac
   "clientTs": "2026-11-19T09:14:03Z",  // when it happened at the counter
   "type": "order.add_lines",
   "payload": { "orderId": "0193…", "lines": [ … ] },
-  "baseVersion": 3                     // optional, see §4
+  "baseVersion": 3,                    // optional, see §4
+  "actorMembershipId": "0192…"         // optional, who did it, see §6
 }
 ```
 
@@ -101,7 +102,7 @@ Resolving records the decision. Any fix (a refund, a recount, voiding by hand) i
 - **First run:** call without a cursor. The response replays the catalog change history, collapsed to each entity's latest state. Pull again with the returned `cursor` while `hasMore` is true.
 - **Afterwards:** poll with the last cursor, for example every 30 to 60 seconds while online, and right after reconnecting.
 - Each change is `{ entity, id, op, data }`. `data` is the entity's current state in the same shape as the REST API returns it, so the register can upsert it. Archived entities arrive with `archivedAt` set; nothing is ever deleted.
-- Entities: `store`, `tax_rate`, `category`, `item` (with variants, categories and modifier groups), `modifier_group` (with modifiers), `store_item` (per-store availability and price override), `stock_level`. Only the terminal's own store's stores, store items and stock levels are included.
+- Entities: `store`, `tax_rate`, `category`, `item` (with variants, categories and modifier groups), `modifier_group` (with modifiers), `store_item` (per-store availability and price override), `stock_level`, and `staff` (see §6). Only the terminal's own store's stores, store items and stock levels are included.
 - The cursor is opaque. Store it only after the changes have been applied locally.
 
 **Consistency:** the feed never skips a change.
@@ -109,7 +110,26 @@ Resolving records the decision. Any fix (a refund, a recount, voiding by hand) i
 - In practice a change made in the admin shows up on the next poll.
 - Long-running write transactions anywhere in the database, such as a big migration, hold the feed back until they finish.
 
-## 6. Recommended register loop
+## 6. Staff and PINs
+
+The terminal token says which *register* is talking. A PIN says which *person* is at it, so sales, voids and payments are recorded against them. People set their own PIN in the admin (Your account), or a manager resets it. A PIN has the tenant's `pinLength` digits (4 by default, up to 6) and is unique within a store, so the PIN alone identifies the person.
+
+**Online:** `POST /v1/tenants/{tenantId}/sync/pin` with `{ pin }` returns the staff member: `{ id, displayName, role, active }`, where `id` is their membership id.
+- A wrong PIN is `403 invalid_pin`, with `details.attemptsLeft`.
+- After 5 wrong PINs in a row, the register's PIN entry is locked for 15 minutes: `423 pin_locked`, with `details.lockedUntil`. The lock is logged in the tenant's audit log.
+- A right PIN resets the count. A `403` here is about the PIN, not the token: don't re-pair.
+
+**Offline:** the pull feed's `staff` entity lists the people who can work this store's registers: `{ id, displayName, role, active, pinDigest }`.
+- `pinDigest` is `sha256("<id>:<pin>")` as lower-case hex, or null without a PIN.
+- `active: false` means revoked, or no longer allowed in this store: drop them locally.
+- To check a PIN offline, compute the digest for each active person and compare.
+
+**PINs attribute; they don't authorize.** A 4–6 digit PIN can be found from its digest in well under a second by anyone holding the register's storage, and no amount of hashing changes that for so few digits. So:
+- Offline, a PIN only says who did something. Put their id in the mutation's `actorMembershipId`. The server records the actor as `pin:<membershipId>@terminal:<terminalId>` if that person is active in the store, and the terminal otherwise. It grants nothing: the register can do exactly what its token allows.
+- Anything that needs a manager (a refund, a void after payment, overriding a price) must be checked online, with `/sync/pin` returning `role: MANAGER` or higher. Or leave it to the review queue. Voids after completion and refunds are already unavailable in sync.
+- Treat the digests like the rest of the register's data: in app-private storage, cleared when the register is unpaired.
+
+## 7. Recommended register loop
 
 ```
 on sale/edit:      append mutation to local outbox; update local state
@@ -118,5 +138,7 @@ every N seconds:   if online:
                        → remove each mutation that got a result
                      pull with the stored cursor until hasMore is false
                        → apply changes, then store the new cursor
+on PIN entry:      online: POST /sync/pin; offline: compare against staff digests
+                   → put the person's id in actorMembershipId on their mutations
 on token 401:      stop syncing; ask a manager to re-pair
 ```

@@ -1,4 +1,5 @@
 import * as oauth from 'oauth4webapi'
+import { type AuthClient, createAuthClient } from './better-auth'
 import { type AdminConfig, basePath } from './config'
 
 /**
@@ -11,9 +12,11 @@ export interface Auth {
   /** Whether there's something to try; the API decides if it's valid. */
   hasSession(): boolean
   signIn(token?: string): Promise<void>
-  signOut(): void
+  signOut(): void | Promise<void>
   /** Finish a redirect-based sign-in, if this page load is one. */
   completeSignIn(): Promise<void>
+  /** Better Auth endpoints, in `better-auth` mode. */
+  client?: AuthClient
 }
 
 const TOKEN_KEY = 'tala-admin:token'
@@ -118,6 +121,22 @@ function oidcAuth(config: Extract<AdminConfig['auth'], { mode: 'oidc' }>): Auth 
   }
 }
 
+function betterAuth(baseURL: string): Auth {
+  const client = createAuthClient(baseURL)
+  return {
+    mode: 'better-auth',
+    // The session cookie rides along with every same-origin request.
+    headers: async () => ({}),
+    hasSession: () => true,
+    async signIn() {},
+    async signOut() {
+      await client.signOut().catch(() => {})
+    },
+    async completeSignIn() {},
+    client,
+  }
+}
+
 export function createAuth(config: AdminConfig): Auth {
   switch (config.auth.mode) {
     case 'access':
@@ -126,5 +145,7 @@ export function createAuth(config: AdminConfig): Auth {
       return oidcAuth(config.auth)
     case 'token':
       return tokenAuth()
+    case 'better-auth':
+      return betterAuth(config.auth.baseURL ?? `${config.apiBase.replace(/\/$/, '')}/auth`)
   }
 }

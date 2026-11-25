@@ -1,4 +1,15 @@
-export { API_VERSION, createTalaApp, type TalaAppOptions } from './app.js'
+export {
+  API_VERSION,
+  createTalaApp,
+  type InvitationOptions,
+  type TalaAppOptions,
+} from './app.js'
+export {
+  hasPendingInvitation,
+  type InvitationEmailData,
+  renderInvitation,
+} from './domain/invitations.js'
+export type { SelfServeTenants } from './domain/tenancy.js'
 export { type ReceiptData, type RenderedEmail, renderReceipt } from './email/receipt.js'
 export type { EmailMessage, Mailer } from './email/types.js'
 export { HttpError } from './errors.js'
@@ -13,6 +24,12 @@ export {
   type TalaHooks,
 } from './events/consumer.js'
 export type { EventQueue } from './events/publish.js'
+export {
+  clientIp,
+  consumeRateLimit,
+  type RateLimitResult,
+  type RateLimitRule,
+} from './lib/rate-limit.js'
 export type {
   ChargeRequest,
   ChargeResult,

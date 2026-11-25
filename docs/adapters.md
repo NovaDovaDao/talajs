@@ -14,12 +14,18 @@ interface AuthAdapter<E> {
 
 Adapters are tried in order; the first that returns an identity wins, and none means 401. An identity is `{ kind: 'staff', subject }` (looked up in `membership` by `subject`) or `{ kind: 'service', subject }` (platform automation: can create tenants and acts as owner everywhere). Registers authenticate with their own `tala_t_…` tokens, which Tala checks before your adapters.
 
+Staff identities may also carry `email`, `emailVerified` and `name`. Set them when your source provides them:
+- accepting an invitation requires `emailVerified` and an `email` matching the invitation;
+- self-serve business creation requires a verified email;
+- the team list and registers show `name` and `email` instead of the subject.
+
 Built in:
 
 | Import | Use |
 |---|---|
-| `@talajs/api/auth/cloudflare-access` | Staff behind Cloudflare Access. The subject is the user's email; Access service tokens become `service-token:<client id>`. |
-| `@talajs/api/auth/oidc` | Bearer access tokens from any OIDC provider (JWKS discovery via `jose`). The subject is `sub`. |
+| `@talajs/auth` (`auth.adapter`) | Built-in sign-in (Better Auth) for merchants and staff. The subject is `ba:<user id>`. See [`packages/auth`](../packages/auth). |
+| `@talajs/api/auth/cloudflare-access` | Staff behind Cloudflare Access. The subject is the user's email (verified); Access service tokens become `service-token:<client id>`. |
+| `@talajs/api/auth/oidc` | Bearer access tokens from any OIDC provider (JWKS discovery via `jose`). The subject is `sub`; `email`, `email_verified` and `name` claims are passed on. |
 | `@talajs/api/auth/service-token` | A shared secret (≥ 32 characters) for automation and provisioning. |
 
 Writing your own: return `null` for requests that aren't yours (so the next adapter can try), throw only for malformed credentials you're sure are yours, and return a stable `subject`: it's what memberships are keyed on and what ledgers record.

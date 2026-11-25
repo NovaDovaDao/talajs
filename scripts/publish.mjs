@@ -38,7 +38,8 @@ if (ci) {
   }
 }
 // Dependency order: a package is published after the packages it depends on.
-const order = ['contracts', 'db', 'api', 'admin']
+// auth last: nothing depends on it, so a failed first publish (no trusted publisher yet) blocks nothing.
+const order = ['contracts', 'db', 'api', 'admin', 'auth']
 const out = mkdtempSync(join(tmpdir(), 'talajs-pack-'))
 const run = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', ...opts })

@@ -1,5 +1,5 @@
 import type { Tenant } from '@talajs/contracts'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Building2, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
@@ -96,9 +96,76 @@ function ServicePicker() {
   )
 }
 
+/** Self-serve (`allowSelfServeTenants`): a signed-in person creates a business and owns it. */
+function CreateBusiness() {
+  const { api } = useApp()
+  const navigate = useNavigate()
+  const client = useQueryClient()
+  const [form, setForm] = useState({ name: '', slug: '', defaultCurrency: 'USD' })
+  const create = useMutation({
+    mutationFn: () => api.post<Tenant>('/v1/tenants', form),
+    onSuccess: async (t) => {
+      await client.invalidateQueries({ queryKey: ['me'] })
+      navigate(`/t/${t.id}`)
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, [k]: e.target.value })
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        create.mutate()
+      }}
+    >
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="nb-name">Business name</FieldLabel>
+          <Input
+            id="nb-name"
+            value={form.name}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                name: e.target.value,
+                slug: e.target.value
+                  .toLowerCase()
+                  .normalize('NFKD')
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-|-$/g, '')
+                  .slice(0, 64),
+              })
+            }
+            required
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="nb-slug">Short name</FieldLabel>
+          <Input id="nb-slug" value={form.slug} onChange={set('slug')} required />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="nb-cur">Currency</FieldLabel>
+          <Input
+            id="nb-cur"
+            value={form.defaultCurrency}
+            onChange={(e) => setForm({ ...form, defaultCurrency: e.target.value.toUpperCase() })}
+            maxLength={3}
+          />
+        </Field>
+        <Button type="submit" disabled={create.isPending}>
+          Create business
+        </Button>
+      </FieldGroup>
+    </form>
+  )
+}
+
 export function TenantPicker() {
   const me = useMe()
+  const { auth } = useApp()
   const navigate = useNavigate()
+  const client = useQueryClient()
   if (me.isPending) {
     return (
       <div className="mx-auto max-w-md p-8">
@@ -114,8 +181,9 @@ export function TenantPicker() {
       </div>
     )
   }
-  const { kind, memberships } = me.data
-  if (kind !== 'service' && memberships.length === 1) {
+  const { kind, memberships, canCreateTenant } = me.data
+  const who = me.data.email ?? me.data.subject
+  if (kind !== 'service' && memberships.length === 1 && !canCreateTenant) {
     return <Navigate to={`/t/${memberships[0]?.tenantId}`} replace />
   }
 
@@ -124,7 +192,7 @@ export function TenantPicker() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="font-heading text-xl">Choose a business</CardTitle>
-          <CardDescription>Signed in as {me.data.subject}</CardDescription>
+          <CardDescription>Signed in as {who}</CardDescription>
         </CardHeader>
         {kind === 'service' ? (
           <ServicePicker />
@@ -133,9 +201,10 @@ export function TenantPicker() {
             {kind === 'terminal' && (
               <p className="text-sm text-muted-foreground">This is a register token.</p>
             )}
-            {memberships.length === 0 && (
+            {memberships.length === 0 && !canCreateTenant && (
               <p className="text-sm text-muted-foreground">
-                You're not a member of any business yet. Ask an owner to add {me.data.subject}.
+                You're not a member of any business yet. Ask an owner or manager to invite {who},
+                then open the link in the email.
               </p>
             )}
             {memberships.map((m) => (
@@ -155,6 +224,26 @@ export function TenantPicker() {
                 <ChevronRight />
               </Button>
             ))}
+            {canCreateTenant && (
+              <>
+                <FieldSeparator>
+                  {memberships.length === 0 ? 'Set up your business' : 'or create another'}
+                </FieldSeparator>
+                <CreateBusiness />
+              </>
+            )}
+            {auth.mode === 'better-auth' && (
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  await auth.signOut()
+                  await client.resetQueries()
+                  navigate('/sign-in')
+                }}
+              >
+                Sign out
+              </Button>
+            )}
           </CardContent>
         )}
       </Card>

@@ -3,7 +3,9 @@ import { createBrowserRouter } from 'react-router'
 import { AppShell } from '@/components/app-shell'
 import { Loading } from '@/components/states'
 import { basePath } from '@/lib/config'
+import { Invite } from './routes/invite'
 import { NotFound } from './routes/not-found'
+import { ForgotPassword, ResetPassword } from './routes/password'
 import { SignIn } from './routes/sign-in'
 import { TenantLayout } from './routes/tenant-layout'
 import { TenantPicker } from './routes/tenant-picker'
@@ -19,10 +21,16 @@ const page =
   <M, K extends keyof M>(load: () => Promise<M>, name: K) =>
   async () => ({ Component: (await load())[name] as ComponentType })
 
+/** Pages that work signed out: a 401 there must not bounce to sign-in. */
+export const PUBLIC_PATHS = /\/(sign-in|forgot-password|reset-password|invite\/[^/]+)\/?$/
+
 export function createAppRouter() {
   return createBrowserRouter(
     [
       { path: '/sign-in', element: <SignIn /> },
+      { path: '/forgot-password', element: <ForgotPassword /> },
+      { path: '/reset-password', element: <ResetPassword /> },
+      { path: '/invite/:token', element: <Invite /> },
       { path: '/', element: <TenantPicker /> },
       {
         path: '/t/:tenantId',
@@ -66,6 +74,7 @@ export function createAppRouter() {
               { path: 'terminals', lazy: page(() => import('./routes/terminals'), 'Terminals') },
               { path: 'review', lazy: page(() => import('./routes/review'), 'Review') },
               { path: 'members', lazy: page(() => import('./routes/members'), 'Members') },
+              { path: 'account', lazy: page(() => import('./routes/account'), 'Account') },
               { path: '*', element: <NotFound /> },
             ],
           },

@@ -111,6 +111,7 @@ export function tenantMiddleware<E>(payments?: Configurable<readonly PaymentAdap
         role: 'STAFF',
         storeIds: [identity.terminal.storeId],
         actor: identity.subject,
+        membershipId: null,
         terminal: identity.terminal,
         ...services,
       })
@@ -126,6 +127,7 @@ export function tenantMiddleware<E>(payments?: Configurable<readonly PaymentAdap
         role: 'OWNER',
         storeIds: [],
         actor: identity.subject,
+        membershipId: null,
         terminal: null,
         ...services,
       })
@@ -138,16 +140,44 @@ export function tenantMiddleware<E>(payments?: Configurable<readonly PaymentAdap
     })
     if (!membership || membership.revokedAt) throw notFound('Tenant')
     if (membership.tenant.disabledAt) throw forbidden('Tenant is disabled')
+    await refreshProfile(db, membership, identity)
     c.set('tenant', {
       tenantId,
       db: db.forTenant(tenantId),
       role: membership.role,
       storeIds: membership.storeIds,
       actor: identity.subject,
+      membershipId: membership.id,
       terminal: null,
       ...services,
     })
     return next()
+  })
+}
+
+/**
+ * Keep a member's email and name in step with their identity source, so the team list and
+ * registers show people rather than subjects. Writes only when something changed.
+ */
+async function refreshProfile(
+  db: TalaDb,
+  membership: { id: string; tenantId: string; email: string | null; displayName: string | null },
+  identity: Identity,
+) {
+  const email = identity.emailVerified ? (identity.email ?? null) : membership.email
+  // A person's own name wins; a manager-set name covers identity sources without one.
+  const displayName = identity.name ?? membership.displayName
+  if (email === membership.email && displayName === membership.displayName) return
+  await db.client.$transaction(async (tx) => {
+    await tx.membership.update({ where: { id: membership.id }, data: { email, displayName } })
+    await tx.changeLog.create({
+      data: {
+        tenantId: membership.tenantId,
+        entity: 'staff',
+        entityId: membership.id,
+        op: 'upsert',
+      },
+    })
   })
 }
 

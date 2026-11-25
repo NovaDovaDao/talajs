@@ -12,6 +12,12 @@ export const Slug = z
 
 export const Name = z.string().trim().min(1).max(200)
 
+/** Stored and compared lower-cased. */
+export const Email = z
+  .email()
+  .max(320)
+  .transform((e) => e.toLowerCase())
+
 export const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   /** Opaque: the last id of the previous page. */
@@ -40,6 +46,15 @@ export const ErrorCode = z.enum([
   'balance_due',
   /** The item is archived or not sold in this store. */
   'item_unavailable',
+  /** Accepting an invitation needs a signed-in identity with the invited email, verified. */
+  'email_mismatch',
+  'email_unverified',
+  /** The invitation was accepted, revoked or has expired. */
+  'invitation_invalid',
+  /** Wrong PIN, or the register's PIN entry is locked after too many wrong PINs. */
+  'invalid_pin',
+  'pin_locked',
+  'too_many_requests',
   'internal_error',
 ])
 export type ErrorCode = z.infer<typeof ErrorCode>

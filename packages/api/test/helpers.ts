@@ -99,10 +99,12 @@ export async function tenantWithOwner(currency = 'USD', target: TestApp = app) {
   if (res.status !== 201) throw new Error(`tenant setup failed: ${JSON.stringify(res.body)}`)
   const tenantId: string = res.body.id
   const base = `/v1/tenants/${tenantId}`
+  const me = await call(owner.caller, 'GET', '/v1/me', undefined, target)
+  const ownerMembershipId: string = me.body.memberships[0].membershipId
   return {
     tenantId,
     base,
-    owner,
+    owner: { ...owner, membershipId: ownerMembershipId },
     as: (caller: Caller) => ({
       get: (p: string) => call(caller, 'GET', `${base}${p}`, undefined, target),
       post: (p: string, b?: unknown) => call(caller, 'POST', `${base}${p}`, b ?? {}, target),

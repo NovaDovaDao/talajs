@@ -57,7 +57,7 @@ export default { fetch: app.fetch, queue: createTalaQueueConsumer({ ... }) }
 
 - **REST + Zod, not GraphQL.** Nothing here needs GraphQL's flexibility, and dropping it gives a smaller Worker bundle, plain HTTP caching, and an RPC-shaped sync endpoint. Routes are declared with `@hono/zod-openapi`, so we get validation, an OpenAPI document and a typed `hc` client from the same Zod schemas.
 - Handlers are thin. Domain logic lives in plain functions `(ctx: TenantCtx, input) => result` that can be tested without HTTP.
-- **Auth is an adapter**: `authenticate(req) → Principal | null`, where `Principal = { kind: 'staff' | 'terminal' | 'service', tenantId, subject, roles, storeIds? }`. Built-in adapters: Cloudflare Access (verifies `Cf-Access-Jwt-Assertion` against the team JWKS), generic OIDC bearer (`jose`), and terminal tokens (always on). Staff identities map to tenants through a `membership` table. Tala never issues its own staff sessions.
+- **Auth is an adapter**: `authenticate(req) → Principal | null`, where `Principal = { kind: 'staff' | 'terminal' | 'service', tenantId, subject, roles, storeIds? }`. Built-in adapters: Cloudflare Access (verifies `Cf-Access-Jwt-Assertion` against the team JWKS), generic OIDC bearer (`jose`), and terminal tokens (always on). Staff identities map to tenants through a `membership` table. *(Changed 2026-11-24, see §7.10: Tala no longer "never issues its own staff sessions"; the optional `@talajs/auth` does, for merchants.)*
 - **Tenancy is enforced in one place.** Middleware resolves the `Principal`, then hands handlers a `TenantDb`: a Prisma client extended (`$extends` query component) to inject `tenantId` into every `where` and `create` for tenant-owned models. The raw client isn't reachable from handlers. On top of that, the database rejects cross-tenant references through composite FKs `(tenant_id, x_id) → (tenant_id, id)`. Postgres RLS is a possible later hardening; it's not needed for v1.
 
 ### 2.2 Database
@@ -115,6 +115,7 @@ If no row comes back, the transaction aborts with an `insufficient_stock` error.
 - Built once and configured at runtime: the build fetches `./tala-admin.json` (`{ apiBase, auth: { mode: 'access' | 'oidc' | 'none', issuer?, clientId? } }`), so the same published `dist/` works for every deployment.
   - With Cloudflare Access, the admin does nothing: same-origin cookies, and the API's Access adapter verifies the assertion.
   - With OIDC, it uses an authorization-code + PKCE flow (`oauth4webapi`).
+  - With built-in sign-in (`better-auth`, §7.10), same-origin httpOnly session cookies; the admin has sign-in, invitation, password reset and account screens.
 - It's served from Workers static assets with SPA fallback, and the base path is configurable so it can mount under `/admin`.
 
 ---
@@ -298,6 +299,15 @@ Verified, in `examples/worker/test/spike-db.test.ts` (inside workerd, through a 
    - JSR's docs don't cover `bin` or export conditions (`workerd`).
 
    The admin's built assets don't fit JSR either. Tala ships to npm as `@talajs/*`. The JSR `@tala` scope stays reserved, e.g. for publishing `@talajs/contracts` there later.
+10. **Built-in merchant sign-in with Better Auth (2026-11-24).** This reverses §2.1's "Tala never issues its own staff sessions". A café owner can't be expected to set up a Zero Trust application or an identity provider, and baristas need to accept an invite and reset a password on their own. So a new, optional `@talajs/auth` package wraps Better Auth and becomes the default sign-in for merchants and staff. Access, OIDC and service tokens stay for operators, automation and enterprises. Design and doc findings: [`docs/design/better-auth.md`](design/better-auth.md). The decisions:
+    - Better Auth only answers "who is this person". Authorization stays in `membership`. Its organization plugin isn't used.
+    - A separate package, so consumers who don't use it don't install it. Its tables live in a `tala_auth` schema (migration `0002`).
+    - Magic link is the default, because it runs on Workers Free. Password sign-in is opt-in and needs Workers Paid for its hashing CPU. Google is wired but off.
+    - Invitations live in `@talajs/api` and work with any identity source that gives a verified email.
+    - Sign-up is invite-only unless `allowSelfServeTenants` is set (off by default).
+    - Register PINs only attribute an action offline; anything that needs a manager is checked online.
+    - Operators use a separate, Access-protected hostname on the same Worker, because Access in front of `/admin` would lock merchants out of the sign-in screen.
+    - A tenant audit log covers invitations, memberships and PINs. Sign-in history comes from Better Auth's session rows.
 
 ### M2 results (2026-11-19)
 
@@ -414,6 +424,45 @@ Verified, in `examples/worker/test/spike-db.test.ts` (inside workerd, through a 
   - One consumer caveat, documented: with `@cloudflare/workers-types` and `skipLibCheck: false`, `@types/pg` pulls in `@types/node` and the globals clash. Use `wrangler types` (Cloudflare's current recommendation) or `skipLibCheck`.
 - `docs/adapters.md` documents the auth, payment, mailer and event-hook interfaces.
 
+### Built-in sign-in results (2026-11-24)
+
+- **Spike (go).** Better Auth 1.7.27 runs in workerd with Tala's own Prisma client. A fresh Better Auth instance is created per request, the pattern Tala needs, with no hangs.
+  - Through Hyperdrive and node-postgres: password sign-up, sign-in and get-session, plus magic link.
+  - The AsyncLocalStorage fallback wasn't needed.
+  - Costs: password sign-in about 90 ms, almost all scrypt CPU, which confirms decision 10's Workers Paid note. Magic-link request and verify take 12–37 ms.
+  - Better Auth adds about 330 KiB gzip to a Worker.
+  - The Neon driver is not yet exercised (no Neon project, §8). It sits below Prisma, so Better Auth sees the same client.
+- **Migration `0002_better_auth`:**
+  - `tala_auth` user, session, account, verification and rate_limit tables;
+  - `tala.invitation`, with a partial unique index for one pending invite per email;
+  - `tala.audit_log`;
+  - membership `email`, `display_name`, `pin_digest` and `pin_set_at`;
+  - terminal `pin_failures` and `pin_locked_until`; tenant `pin_length`;
+  - a backfill of `staff` rows into the change feed for existing members.
+- **`@talajs/api`:**
+  - `Identity` gains `email`, `emailVerified` and `name`.
+  - Invitation endpoints:
+    - create, list, re-send (new token), revoke;
+    - an unauthenticated preview, rate limited per IP;
+    - accept, which requires the verified email to match and is single use under races.
+  - PIN endpoints: set and clear, plus `/sync/pin` with a 5-strike, 15-minute lock per register.
+  - The sync `staff` entity and `actorMembershipId` attribution.
+  - `allowSelfServeTenants`, `PATCH` on the tenant (name, PIN length), the audit log, and `consumeRateLimit`.
+  - Managers may now list members and invite staff to their own stores.
+- **Deviations from the design doc:**
+  - PINs are stored as `sha256(membershipId:pin)`, not PBKDF2. No hashing cost protects a 4–6 digit space, and the online check runs against every candidate member, so CPU matters on Workers Free.
+  - The lockout counts per register, on the terminal row.
+  - The admin calls Better Auth's endpoints with `fetch` instead of its React client, which keeps the bundle and dependency list small.
+- **Admin:**
+  - The `better-auth` mode, with sign-in, accept-invite with sign-up, forgot and reset password.
+  - An account page: name, PIN, password, sessions, sign out everywhere.
+  - Invitations on the Team page, a business switcher, and self-serve "create a business".
+- **Example Worker:**
+  - Merchants use Better Auth on the public host, operators use Access on `OPERATOR_HOST`.
+  - A console mailer for local development.
+  - An end-to-end test through the Worker's own export: invite, magic link, accept.
+- **Tests:** contracts 20, db 18, api 94, auth 11, admin 7, example 11.
+
 ---
 
 ## 8. Open items for the maintainer
@@ -422,21 +471,27 @@ Things only the maintainer can do. Updated at each milestone; tick them off here
 
 **Before the first deploy**
 - [ ] Cloudflare account; create a Hyperdrive config (`wrangler hyperdrive create`) and put its id in `examples/worker/wrangler.jsonc`.
-- [ ] Cloudflare Access application covering both `/admin/*` and `/tala/*` on the Worker's hostname: set `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`. (If you use OIDC instead, set `ADMIN_AUTH_MODE=oidc` and register `<host>/admin/auth/callback` as a redirect URI.)
+- [ ] Merchant sign-in (§7.10): set `PUBLIC_ORIGIN` and `AUTH_FROM`; `wrangler secret put BETTER_AUTH_SECRET` (`openssl rand -base64 32`). It needs email to work at all, so the Resend item below becomes required.
+- [ ] Operators: route a second hostname (`OPERATOR_HOST`) to the Worker and put a Cloudflare Access application on **that hostname only**; set `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`. Access must not cover the public hostname's `/admin` or `/tala`, or merchants can't reach the sign-in screen.
 - [ ] `wrangler secret put TALA_SERVICE_TOKEN` (at least 32 random characters).
+- [ ] The first owner: create the business with the service token and invite its owner by email (see `packages/auth/README.md`, "Setup").
 - [ ] Queues: `wrangler queues create tala-events` and `wrangler queues create tala-events-dlq`.
 - [ ] Run `tala-db migrate` against the production database (direct connection).
 
-**Receipts (optional)**
-- [ ] Verify a sending domain in Resend; set `RECEIPTS_FROM` and `wrangler secret put RESEND_API_KEY`.
+**Email (required for sign-in; also sends receipts)**
+- [ ] Verify a sending domain in Resend; set `AUTH_FROM` and `RECEIPTS_FROM`, and `wrangler secret put RESEND_API_KEY`.
 
 **Before 0.1.0 (M7)**
 - [x] Claim the npm org: `@talajs` (2026-11-22; `@tala` was taken).
 - [x] Public repository: `NovaDovaDao/talajs` (2026-11-23), with a fresh history.
 - [x] Push the initial commit to `NovaDovaDao/talajs` (2026-11-23).
 - [x] First publish: 0.1.0 of all four packages, from the maintainer's machine (2026-11-24; no provenance on this version).
-- [ ] npm trusted publishing for the four packages, so later releases come from GitHub Actions with provenance: see `RELEASING.md`.
-- [ ] Create a Neon project, so the open M1 item can be checked: the WebSocket driver, cold start, and scale to zero (including Hyperdrive's pooled connections).
+- [x] npm trusted publishing for the four packages (2026-11-24; 0.1.1 was published by GitHub Actions with provenance). The trusted publisher's Environment field must be empty.
+
+**Before 0.2.0 (built-in sign-in)**
+- [ ] `@talajs/auth` is a new package, and npm can only set up trusted publishing for a package that exists. When the 0.2.0 version PR is merged, CI publishes the other four and then fails on `@talajs/auth` (it's published last for this reason). Then pull `main`, `npm login`, and run `pnpm release`: it skips what's already on npm and publishes `@talajs/auth`. Finally add its trusted publisher (Environment empty), as for the others.
+- [ ] Workers plan: magic link is the default and runs on Free. Turn on password sign-in (`methods.password`, in both `createTalaAuth` and the admin config) only on Workers Paid.
+- [ ] Create a Neon project, so the open M1 item can be checked: the WebSocket driver, cold start, and scale to zero (including Hyperdrive's pooled connections). Your first consumer uses Neon, so also try sign-in there with the `neon` driver (magic link, accept an invitation).
 - [ ] Decide on multi-store stock (M3 known limitation): add a per-store link table before 0.1.0, or document it.
 
 **Hardening (optional)**

@@ -1,6 +1,8 @@
 import type { MemberRole } from '@talajs/contracts'
 import {
   Boxes,
+  Building2,
+  Check,
   ChevronsUpDown,
   ClipboardList,
   Coffee,
@@ -17,6 +19,7 @@ import {
   Store,
   Sun,
   TriangleAlert,
+  UserRound,
   Users,
   UsersRound,
 } from 'lucide-react'
@@ -95,7 +98,7 @@ const NAV: { label: string; items: NavItem[] }[] = [
         role: 'MANAGER',
         allStores: true,
       },
-      { to: 'members', label: 'Team', icon: Users, role: 'OWNER' },
+      { to: 'members', label: 'Team', icon: Users, role: 'MANAGER' },
     ],
   },
 ]
@@ -121,7 +124,7 @@ function StoreSwitcher() {
 
 function UserMenu() {
   const { auth } = useApp()
-  const { subject, role, tenantName } = useTenant()
+  const { displayName, role, tenantName, tenantId, memberships } = useTenant()
   const { setTheme } = useTheme()
   const navigate = useNavigate()
   return (
@@ -130,16 +133,32 @@ function UserMenu() {
         <SidebarMenuButton size="lg">
           <ShieldCheck />
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-medium">{subject}</span>
+            <span className="truncate font-medium">{displayName}</span>
             <span className="truncate text-xs text-muted-foreground">{role.toLowerCase()}</span>
           </div>
           <ChevronsUpDown className="ml-auto" />
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" className="w-56">
-        <DropdownMenuLabel>{tenantName}</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => navigate(`/t/${tenantId}/account`)}>
+          <UserRound /> Your account
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Businesses</DropdownMenuLabel>
+        {memberships.length > 1 ? (
+          memberships.map((m) => (
+            <DropdownMenuItem key={m.tenantId} onSelect={() => navigate(`/t/${m.tenantId}`)}>
+              {m.tenantId === tenantId ? <Check /> : <Building2 />}
+              <span className="truncate">{m.tenantName}</span>
+            </DropdownMenuItem>
+          ))
+        ) : (
+          <DropdownMenuItem disabled>
+            <Check /> <span className="truncate">{tenantName}</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={() => navigate('/')}>
-          <ClipboardList /> Switch business
+          <ClipboardList /> All businesses
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => setTheme('light')}>
@@ -153,8 +172,8 @@ function UserMenu() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => {
-            auth.signOut()
+          onSelect={async () => {
+            await auth.signOut()
             navigate('/sign-in')
           }}
         >

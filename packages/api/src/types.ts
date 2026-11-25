@@ -15,6 +15,12 @@ export interface Identity {
   claims?: Record<string, unknown>
   /** Set when `kind` is `terminal`. */
   terminal?: TerminalIdentity
+  /** Lower-cased email, when the identity source provides one. Invitations match on it. */
+  email?: string
+  /** Only a verified email can accept an invitation. */
+  emailVerified?: boolean
+  /** Display name, when the identity source provides one. */
+  name?: string
 }
 
 export interface TerminalIdentity {
@@ -34,6 +40,8 @@ export interface TenantContext {
   storeIds: string[]
   /** Recorded on ledgers and notes. */
   actor: string
+  /** The caller's membership, for staff identities. */
+  membershipId: string | null
   /** The paired register making the request, if any. */
   terminal: TerminalIdentity | null
   /** Payment adapters configured for this request (cash needs none). */

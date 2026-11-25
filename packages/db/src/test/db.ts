@@ -11,7 +11,7 @@ export async function resetTalaSchema(url = TEST_URL): Promise<void> {
   const client = new pg.Client({ connectionString: url })
   await client.connect()
   try {
-    await client.query('DROP SCHEMA IF EXISTS tala CASCADE')
+    await client.query('DROP SCHEMA IF EXISTS tala, tala_auth CASCADE')
   } finally {
     await client.end()
   }

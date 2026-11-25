@@ -39,6 +39,13 @@ export interface TenantSession {
   /** Empty = all stores. */
   storeIds: string[]
   subject: string
+  /** The caller's membership in this tenant (null for service credentials). */
+  membershipId: string | null
+  hasPin: boolean
+  /** Every business the caller belongs to, for the switcher. */
+  memberships: Me['memberships']
+  /** Name, else email, else subject. */
+  displayName: string
   can(minimum: MemberRole): boolean
   /** Prefix for tenant-scoped API paths. */
   path(p: string): string

@@ -34,7 +34,14 @@ describe('tenants', () => {
     const t = await tenantWithOwner()
     const me = await call(t.owner.caller, 'GET', '/v1/me')
     expect(me.body.memberships).toEqual([
-      { tenantId: t.tenantId, tenantName: 'Test Café', role: 'OWNER', storeIds: [] },
+      {
+        tenantId: t.tenantId,
+        tenantName: 'Test Café',
+        membershipId: t.owner.membershipId,
+        role: 'OWNER',
+        storeIds: [],
+        hasPin: false,
+      },
     ])
     expect((await t.as(t.owner.caller).get('')).body.id).toBe(t.tenantId)
 
@@ -60,7 +67,11 @@ describe('memberships and roles', () => {
     expect((await t.as(staff.caller).get('/tax-rates')).status).toBe(200)
     expect((await t.as(staff.caller).post('/tax-rates', taxRate)).status).toBe(403)
     expect((await t.as(manager.caller).post('/tax-rates', taxRate)).status).toBe(201)
-    expect((await t.as(manager.caller).get('/memberships')).status).toBe(403)
+    expect((await t.as(staff.caller).get('/memberships')).status).toBe(403)
+    expect((await t.as(manager.caller).get('/memberships')).status).toBe(200)
+    expect(
+      (await t.as(manager.caller).post('/memberships', { subject: 'x', role: 'STAFF' })).status,
+    ).toBe(403)
     expect((await t.as(t.owner.caller).get('/memberships')).body.data).toHaveLength(3)
   })
 

@@ -6,7 +6,7 @@ export default async function setup() {
   const url = process.env.TALA_TEST_DATABASE_URL ?? 'postgresql://localhost:5432/tala_test'
   const client = new pg.Client({ connectionString: url })
   await client.connect()
-  await client.query('DROP SCHEMA IF EXISTS tala CASCADE')
+  await client.query('DROP SCHEMA IF EXISTS tala, tala_auth CASCADE')
   await client.end()
   await migrate({ url })
 }

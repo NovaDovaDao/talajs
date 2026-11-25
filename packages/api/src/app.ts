@@ -1,5 +1,12 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { TalaDb } from '@talajs/db'
+import {
+  type InvitationEmailData,
+  type InvitationSettings,
+  renderInvitation,
+} from './domain/invitations.js'
+import { type SelfServeTenants, selfServeLimit } from './domain/tenancy.js'
+import type { Mailer } from './email/types.js'
 import { errorResponse, HttpError, toHttpError } from './errors.js'
 import { type EventQueue, publishEvents } from './events/publish.js'
 import { authenticate, dbMiddleware, tenantMiddleware } from './middleware/index.js'
@@ -9,8 +16,26 @@ import { registerCustomerRoutes } from './routes/customers.js'
 import { registerInventoryRoutes } from './routes/inventory.js'
 import { registerOrderRoutes } from './routes/orders.js'
 import { registerPairingRoute, registerSyncRoutes } from './routes/sync.js'
-import { registerTenancyRoutes } from './routes/tenancy.js'
-import type { AuthAdapter, Configurable, TalaEnv } from './types.js'
+import {
+  registerInvitationPreviewRoute,
+  registerTenancyRoutes,
+  type TeamSettings,
+} from './routes/tenancy.js'
+import { type AuthAdapter, type Configurable, resolveConfig, type TalaEnv } from './types.js'
+
+export interface InvitationOptions<E> {
+  /**
+   * The link in the invitation email, where your admin shows the accept screen. With the
+   * bundled admin at `/admin`: `` (token, env) => `${env.PUBLIC_ORIGIN}/admin/invite/${token}` ``.
+   */
+  acceptUrl: (token: string, env: E) => string
+  /** Sends invitation emails. Without one, create and re-send return the link to share. */
+  mailer?: Configurable<Mailer, E>
+  /** Days until an invitation expires. Default 7. */
+  expiresInDays?: number
+  /** Brand the email. Defaults to a plain template. */
+  render?: (data: InvitationEmailData) => { subject: string; html: string; text: string }
+}
 
 export interface TalaAppOptions<E> {
   /** Create a database client for a request, e.g. `(env) => createDb({ url: env.HYPERDRIVE.connectionString })`. */
@@ -24,6 +49,14 @@ export interface TalaAppOptions<E> {
    * Consume it with `createTalaConsumer`. Without a queue, events still land in the outbox.
    */
   events?: { queue: Configurable<EventQueue, E> }
+  /** Invite people by email. Accepting works with any auth adapter that provides a verified email. */
+  invitations?: InvitationOptions<E>
+  /**
+   * Let anyone signed in with a verified email create a business and become its owner. Off by
+   * default: tenants are provisioned by a service credential. With @talajs/auth, pass the same
+   * value to `createTalaAuth`, which otherwise only lets invited people sign up.
+   */
+  allowSelfServeTenants?: boolean | SelfServeTenants
   /** Serve the OpenAPI document at `/openapi.json` (default true). */
   openapi?: boolean
 }
@@ -57,9 +90,26 @@ export function createTalaApp<E = unknown>(options: TalaAppOptions<E>) {
   })
   app.notFound((c) => errorResponse(c, new HttpError(404, 'not_found', 'Route not found')))
 
-  // The one unauthenticated route, registered first so the auth middleware below never runs for it.
+  // Unauthenticated routes, registered first so the auth middleware below never runs for them.
   app.use('/v1/terminal/pair', dbMiddleware(options.db))
   registerPairingRoute(app)
+  if (options.invitations) {
+    app.on('GET', '/v1/invitations/:token{tala_i_[A-Za-z0-9_-]+}', dbMiddleware(options.db))
+    registerInvitationPreviewRoute(app)
+  }
+
+  const invitations = options.invitations
+  const team: TeamSettings<E> = {
+    selfServeTenants: selfServeLimit(options.allowSelfServeTenants),
+    invitations: invitations
+      ? (c): InvitationSettings => ({
+          acceptUrl: (token) => invitations.acceptUrl(token, c.env),
+          mailer: invitations.mailer ? resolveConfig(invitations.mailer, c.env) : null,
+          ttlDays: invitations.expiresInDays ?? 7,
+          render: invitations.render ?? renderInvitation,
+        })
+      : null,
+  }
 
   app.use(
     '/v1/*',
@@ -70,7 +120,7 @@ export function createTalaApp<E = unknown>(options: TalaAppOptions<E>) {
   app.use('/v1/tenants/:tenantId', tenantMiddleware<E>(options.payments))
   app.use('/v1/tenants/:tenantId/*', tenantMiddleware<E>(options.payments))
 
-  registerTenancyRoutes(app)
+  registerTenancyRoutes(app, team)
   registerCatalogRoutes(app)
   registerInventoryRoutes(app)
   registerCustomerRoutes(app)

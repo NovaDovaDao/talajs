@@ -175,7 +175,9 @@ describe('items, variants and modifiers', () => {
     const { t, latte } = await menu()
     const db = createDb({ url: env.HYPERDRIVE.connectionString, driver: 'pg' })
     try {
-      const changes = await db.forTenant(t.tenantId).changeLog.findMany({ orderBy: { seq: 'asc' } })
+      const changes = await db
+        .forTenant(t.tenantId)
+        .changeLog.findMany({ where: { entity: { not: 'staff' } }, orderBy: { seq: 'asc' } })
       expect(changes.map((c) => c.entity)).toEqual([
         'tax_rate',
         'category',
