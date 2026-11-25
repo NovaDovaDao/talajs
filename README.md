@@ -11,7 +11,8 @@
 - **Café-shaped domain.** Sizes, milk choices and extra shots; open tabs; voids and refunds; split tender. Cash is built in; card and crypto processors plug in as payment adapters.
 - **Offline-first registers.** Terminals sell without the cloud and sync later. The server deduplicates every mutation, and conflicts land in a review queue instead of disappearing.
 - **Multi-tenant from the start.** Every row is tenant-scoped, and the scoping is enforced in one place and backed by database constraints.
-- **Pluggable edges.** Auth (Cloudflare Access, OIDC or your own), payment processors and email (Resend) are adapters.
+- **Sign-in for the people who use it.** Optional built-in sign-in (`@talajs/auth`, on Better Auth): owners invite staff by email, and people sign in with an emailed link. Nobody has to set up an identity provider.
+- **Pluggable edges.** Auth (built-in sign-in, Cloudflare Access, OIDC or your own), payment processors and email (Resend) are adapters.
 - **Admin included.** A React admin (register, orders and tabs, menu, inventory, customers, registers, review queue, team) ships as a static build you serve from the same Worker.
 
 ## Usage
@@ -49,7 +50,7 @@ export default {
 }
 ```
 
-[`examples/worker`](examples/worker) is a complete reference deployment (`wrangler.jsonc`, queues, cron, admin).
+For built-in sign-in instead of Cloudflare Access, see [`@talajs/auth`](packages/auth). [`examples/worker`](examples/worker) is a complete reference deployment: `wrangler.jsonc`, queues, cron, the admin, built-in sign-in for merchants and Access for operators.
 
 Tala keeps its tables in their own Postgres schema (`tala`) with its own migration history, so you can apply its migrations alongside yours:
 
@@ -64,6 +65,7 @@ npx tala-db migrate --url "$DATABASE_URL"
 | `@talajs/contracts` | Zod schemas and types for the API, money and tax math, and the sync protocol |
 | `@talajs/db` | Prisma schema, SQL migrations, the `tala-db` CLI, and a tenant-scoped client |
 | `@talajs/api` | Hono app factory, queue consumer, and auth/payment/email adapters |
+| `@talajs/auth` | Optional built-in sign-in for merchants and staff (Better Auth) |
 | `@talajs/admin` | Static admin UI, deployable on Workers static assets |
 
 ## Development
@@ -83,11 +85,12 @@ pnpm build
 node packages/db/dist/cli.js migrate --url postgresql://localhost:5432/tala_dev
 
 cd examples/worker
-printf 'TALA_SERVICE_TOKEN=%s\nADMIN_AUTH_MODE=token\n' "$(openssl rand -hex 24)" > .dev.vars
+printf 'TALA_SERVICE_TOKEN=%s\nBETTER_AUTH_SECRET=%s\nPUBLIC_ORIGIN=http://localhost:8787\nADMIN_AUTH_MODE=token\n' \
+  "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" > .dev.vars
 CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://localhost:5432/tala_dev pnpm dev
 ```
 
-Open http://localhost:8787/admin/, sign in with the service token from `.dev.vars`, and create a business. For admin development with hot reload, run `pnpm dev` in `packages/admin` as well (it proxies `/tala` to the worker) and use http://localhost:5173/.
+Open http://localhost:8787/admin/, sign in with the service token from `.dev.vars`, and create a business. To try built-in sign-in, remove `ADMIN_AUTH_MODE=token` and restart. Invite yourself from the Team page first: the sign-in and invitation links are printed in the `wrangler dev` log, since no `RESEND_API_KEY` is set. For admin development with hot reload, run `pnpm dev` in `packages/admin` as well (it proxies `/tala` to the worker) and use http://localhost:5173/.
 
 ## Acknowledgements
 

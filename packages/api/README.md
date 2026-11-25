@@ -25,11 +25,12 @@ Auth adapters are tried in order, and the first one that recognises a request de
 
 | Adapter | Credential | Identity |
 |---|---|---|
-| `cloudflareAccess` | `Cf-Access-Jwt-Assertion` (verified against your team's keys and AUD) | lower-cased email, or `service-token:<client id>` |
-| `oidc` | `Authorization: Bearer <JWT>` from any OIDC provider | `sub` (configurable) |
+| `auth.adapter` from [`@talajs/auth`](../auth) | Session cookie from built-in sign-in (Better Auth) | `ba:<user id>`, with verified email and name |
+| `cloudflareAccess` | `Cf-Access-Jwt-Assertion` (verified against your team's keys and AUD) | lower-cased email (verified), or `service-token:<client id>` |
+| `oidc` | `Authorization: Bearer <JWT>` from any OIDC provider | `sub` (configurable), with `email`, `email_verified` and `name` claims |
 | `serviceToken` | `Authorization: Bearer <shared secret>` | the platform `service` identity |
 
-To write your own adapter, implement `{ name, authenticate(c) → Identity | null }`.
+Built-in sign-in is the easy path for merchants and staff; Access, OIDC and service tokens suit operators, automation and businesses with their own identity provider. To write your own adapter, implement `{ name, authenticate(c) → Identity | null }`. Set `email` and `emailVerified` on the identity if you can: invitations match on them.
 
 ## Tenancy and roles
 
@@ -37,15 +38,38 @@ Every resource lives under `/v1/tenants/{tenantId}`. A staff identity is admitte
 
 - `STAFF`: read the catalog; add customers and notes; adjust stock.
 - `MANAGER`: write the catalog, stock levels and per-store settings; archive customers.
-- `OWNER`: manage members. A tenant always keeps at least one owner.
+- `MANAGER` can also see the team and invite `STAFF` to their own stores.
+- `OWNER`: change and remove members, invite anyone, read the audit log. A tenant always keeps at least one owner.
 - A member can be limited to particular stores (`storeIds`).
 - The `service` identity provisions tenants (`POST /v1/tenants`) and acts as OWNER anywhere.
+
+## Team: invitations, PINs and the audit log
+
+```ts
+createTalaApp<Env>({
+  db,
+  auth,
+  invitations: {
+    acceptUrl: (token, env) => `${env.PUBLIC_ORIGIN}/admin/invite/${token}`,
+    mailer: (env) => resend({ apiKey: env.RESEND_API_KEY, from: 'Café <hello@cafe.example>' }),
+  },
+  allowSelfServeTenants: false,   // true: anyone with a verified email can create a business
+})
+```
+
+- **Invitations.** `POST …/invitations { email, role, storeIds }` emails a link that works once, for 7 days, and only for that email.
+  - `GET /v1/invitations/{token}` previews it without signing in, showing the business, role and masked email.
+  - `POST /v1/invitations/accept { token }` joins. It requires a signed-in identity whose **verified** email matches; otherwise `403 email_mismatch` or `email_unverified`.
+  - Re-sending issues a new link. Without a mailer, the response includes the link for you to share.
+- **Self-serve businesses.** With `allowSelfServeTenants`, a person with a verified email may `POST /v1/tenants` without `ownerSubject` and becomes its owner, up to `maxTenantsPerPerson` (default 3).
+- **Register PINs.** `PUT …/memberships/{id}/pin { pin }` works for your own PIN, a manager resetting staff, or an owner for anyone. Registers check PINs at `POST …/sync/pin`. See [`docs/sync-protocol.md`](../../docs/sync-protocol.md) §6 for the lockout and why PINs only attribute offline.
+- **Audit log.** `GET …/audit-log` lists invitations, membership changes, PINs and settings changes, newest first.
 
 ## Conventions
 
 - Lists are keyset-paginated: `?limit=&cursor=`, returning `{ data, nextCursor }`.
 - `DELETE` archives a record and `POST …/restore` restores it. Archived records are hidden unless `?includeArchived=true`.
-- Errors look like `{ error: { code, message, details? } }`, where `code` is one of `validation_error`, `unauthenticated`, `forbidden`, `not_found`, `conflict`, `invalid_reference` or `insufficient_stock`.
+- Errors look like `{ error: { code, message, details? } }`. `code` is one of `ErrorCode` in `@talajs/contracts`, for example `validation_error`, `unauthenticated`, `forbidden`, `not_found`, `conflict`, `invalid_reference`, `insufficient_stock`, `email_mismatch` or `invalid_pin`.
 - Every response is validated against its schema in `@talajs/contracts` before it is sent.
 
 ## Orders, payments and refunds

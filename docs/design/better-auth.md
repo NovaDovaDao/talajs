@@ -1,6 +1,12 @@
 # Design: built-in merchant sign-in with Better Auth
 
-Status: **approved** (2026-11-24), with the decisions in §10. Implementation starts with the spike in §9.
+Status: **approved and implemented** (2026-11-24), with the decisions in §10.
+
+Where the implementation differs from this design (see PLAN.md, "Built-in sign-in results"):
+- PINs are `sha256(membershipId:pin)`, not PBKDF2 (§8).
+- The lockout counter is per register, on `terminal` (`pin_failures`, `pin_locked_until`), rather than on the membership.
+- The admin calls Better Auth's endpoints with `fetch` rather than its React client.
+- The spike's option (a), an instance per request, worked; option (b) wasn't needed.
 
 ## 1. Why
 

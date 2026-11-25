@@ -179,7 +179,11 @@ export function createTalaAuth<E>(options: TalaAuthOptions<E>) {
      *
      *     app.on(['GET', 'POST'], '/tala/auth/*', (c) => auth.handler(c.req.raw, c.env, c.executionCtx))
      */
-    async handler(request: Request, env: E, ctx?: ExecutionContext): Promise<Response> {
+    async handler(
+      request: Request,
+      env: E,
+      ctx?: { waitUntil(promise: Promise<unknown>): void },
+    ): Promise<Response> {
       const db = options.db(env)
       try {
         return await build(env, db).handler(request)

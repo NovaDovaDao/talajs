@@ -1,10 +1,26 @@
 {
   "name": "@talajs/auth",
   "version": "0.1.1",
-  "private": true,
-  "description": "Optional built-in merchant sign-in for Tala, powered by Better Auth.",
+  "description": "Optional built-in sign-in for Tala merchants and staff (magic link, password, Google), powered by Better Auth.",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/NovaDovaDao/talajs/tree/main/packages/auth#readme",
+  "bugs": {
+    "url": "https://github.com/NovaDovaDao/talajs/issues"
+  },
+  "keywords": [
+    "better-auth",
+    "auth",
+    "magic-link",
+    "cloudflare-workers",
+    "pos",
+    "commerce"
+  ],
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NovaDovaDao/talajs.git",
+    "directory": "packages/auth"
+  },
   "sideEffects": false,
   "exports": {
     ".": {
@@ -37,5 +53,14 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   }
 }

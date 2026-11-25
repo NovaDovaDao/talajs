@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const DEV_CONDITION = '@talajs/source'
-const packages = ['contracts', 'db', 'api', 'admin']
+const packages = ['contracts', 'db', 'api', 'auth', 'admin']
 const check = process.argv.includes('--check')
 
 const strip = (value) => {
