@@ -7,7 +7,7 @@ export default async function setup() {
   if (!/test/i.test(new URL(url).pathname)) throw new Error(`Refusing to reset ${url}`)
   const client = new pg.Client({ connectionString: url })
   await client.connect()
-  await client.query('DROP SCHEMA IF EXISTS tala CASCADE')
+  await client.query('DROP SCHEMA IF EXISTS tala, tala_auth CASCADE')
   await client.end()
   await migrate({ url })
 }

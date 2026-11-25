@@ -9,6 +9,7 @@ import {
   ResolveReviewItem,
   ReviewItem,
   ReviewListQuery,
+  StaffMember,
   SyncPullQuery,
   SyncPullResponse,
   SyncPushRequest,
@@ -17,8 +18,10 @@ import {
   TenantResourceParams,
   Terminal,
   UpdateTerminal,
+  VerifyPin,
 } from '@talajs/contracts'
 import { z } from 'zod'
+import { verifyPin } from '../domain/pins.js'
 import * as review from '../domain/review.js'
 import * as sync from '../domain/sync.js'
 import * as terminals from '../domain/terminals.js'
@@ -204,6 +207,23 @@ export function registerSyncRoutes<E>(app: TalaApp<E>) {
     async (c) => {
       requireTerminal(c)
       return send(c, SyncPullResponse, await sync.pullChanges(tenantOf(c), c.req.valid('query')))
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: tenantPath('/sync/pin'),
+      tags: ['Sync'],
+      summary: 'Check a staff PIN at a register',
+      description:
+        "Terminal token only. Returns the person the PIN belongs to in this store. A wrong PIN is 403 `invalid_pin`; after 5 in a row the register's PIN entry is locked for 15 minutes (423 `pin_locked`).",
+      request: { params: TenantParams, ...jsonBody(VerifyPin) },
+      responses: { 200: json(StaffMember, 'The staff member'), ...errorResponses },
+    }),
+    async (c) => {
+      const terminal = requireTerminal(c)
+      return send(c, StaffMember, await verifyPin(tenantOf(c), terminal, c.req.valid('json').pin))
     },
   )
 

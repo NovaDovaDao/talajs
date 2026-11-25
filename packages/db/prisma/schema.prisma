@@ -32,7 +32,7 @@ generator workerd {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["tala"]
+  schemas  = ["tala", "tala_auth"]
 }
 
 // ───────────────────────────── tenancy & access ─────────────────────────────
@@ -42,6 +42,8 @@ model Tenant {
   name            String
   slug            String    @unique
   defaultCurrency String    @map("default_currency") @db.Char(3)
+  /// Digits in a staff PIN (4–6).
+  pinLength       Int       @default(4) @map("pin_length") @db.SmallInt
   disabledAt      DateTime? @map("disabled_at") @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -61,6 +63,8 @@ model Tenant {
   syncMutations   SyncMutation[]
   reviewItems     ReviewItem[]
   domainEvents    DomainEvent[]
+  invitations     Invitation[]
+  auditLogs       AuditLog[]
 
   @@map("tenant")
   @@schema("tala")
@@ -108,10 +112,16 @@ model Membership {
   subject   String
   role      MemberRole
   /// Empty = all stores.
-  storeIds  String[]   @default([]) @map("store_ids") @db.Uuid
-  revokedAt DateTime?  @map("revoked_at") @db.Timestamptz(3)
-  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  storeIds    String[]   @default([]) @map("store_ids") @db.Uuid
+  /// Lower-cased verified email, when the identity source provides one.
+  email       String?
+  displayName String?    @map("display_name")
+  /// sha256(membership id + PIN); see docs/sync-protocol.md for why PINs only attribute offline.
+  pinDigest   String?    @map("pin_digest")
+  pinSetAt    DateTime?  @map("pin_set_at") @db.Timestamptz(3)
+  revokedAt   DateTime?  @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -135,6 +145,9 @@ model Terminal {
   pairingExpiresAt DateTime? @map("pairing_expires_at") @db.Timestamptz(3)
   scopes           String[]  @default([])
   lastSeenAt       DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  /// Consecutive wrong PINs entered on this register; reset by a correct one.
+  pinFailures      Int       @default(0) @map("pin_failures")
+  pinLockedUntil   DateTime? @map("pin_locked_until") @db.Timestamptz(3)
   revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -827,4 +840,142 @@ model ChangeLog {
   @@index([tenantId, seq])
   @@map("change_log")
   @@schema("tala")
+}
+
+// ───────────────────────────── invitations & audit ─────────────────────────────
+
+/// An invite to join a tenant, accepted by a signed-in identity with the same verified email.
+model Invitation {
+  id         String     @id @db.Uuid
+  tenantId   String     @map("tenant_id") @db.Uuid
+  /// Lower-cased.
+  email      String
+  role       MemberRole
+  storeIds   String[]   @default([]) @map("store_ids") @db.Uuid
+  /// sha256 of the token; the token itself is only in the email.
+  tokenHash  String     @unique @map("token_hash")
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz(3)
+  invitedBy  String     @map("invited_by")
+  acceptedAt DateTime?  @map("accepted_at") @db.Timestamptz(3)
+  acceptedBy String?    @map("accepted_by")
+  revokedAt  DateTime?  @map("revoked_at") @db.Timestamptz(3)
+  lastSentAt DateTime   @default(now()) @map("last_sent_at") @db.Timestamptz(3)
+  sendCount  Int        @default(1) @map("send_count")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // Plus a partial unique index (one pending invite per email), in 0002_better_auth.sql.
+  @@unique([tenantId, id])
+  @@index([email])
+  @@map("invitation")
+  @@schema("tala")
+}
+
+/// Append-only record of access changes in a tenant (invitations, memberships, PINs).
+model AuditLog {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  actor       String
+  action      String
+  subjectType String   @map("subject_type")
+  subjectId   String   @map("subject_id") @db.Uuid
+  details     Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, createdAt])
+  @@map("audit_log")
+  @@schema("tala")
+}
+
+// ───────────────────────────── built-in sign-in (Better Auth) ─────────────────────────────
+//
+// Used only by @talajs/auth. People aren't tenant data (one person can belong to several
+// businesses), so these tables live in their own schema without tenant_id. Better Auth reads and
+// writes them through the Prisma adapter; field names are Better Auth's, columns are snake_case.
+
+model AuthUser {
+  id            String   @id @db.Uuid
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false) @map("email_verified")
+  image         String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions AuthSession[]
+  accounts AuthAccount[]
+
+  @@map("user")
+  @@schema("tala_auth")
+}
+
+model AuthSession {
+  id        String   @id @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+  @@schema("tala_auth")
+}
+
+model AuthAccount {
+  id                    String    @id @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  /// The provider's id for the user (the user id itself for "credential").
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(3)
+  scope                 String?
+  /// Password hash, for providerId "credential".
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+  @@schema("tala_auth")
+}
+
+model AuthVerification {
+  id         String   @id @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@map("verification")
+  @@schema("tala_auth")
+}
+
+/// Written only by @talajs/auth's atomic rate-limit store, never by Better Auth's adapter.
+model AuthRateLimit {
+  key         String @id
+  count       Int
+  /// Start of the current window, epoch milliseconds.
+  windowStart BigInt @map("window_start")
+
+  @@map("rate_limit")
+  @@schema("tala_auth")
 }

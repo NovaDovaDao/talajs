@@ -144,6 +144,11 @@ export const SyncMutation = z
      * changed since becomes a conflict for review instead of being applied.
      */
     baseVersion: z.number().int().min(1).optional(),
+    /**
+     * The staff member (membership id) who did this at the counter, from a PIN check. Recorded
+     * for attribution only; it grants nothing (see docs/sync-protocol.md).
+     */
+    actorMembershipId: Id.optional(),
   })
   .meta({ id: 'SyncMutation' })
 export type SyncMutation = z.infer<typeof SyncMutation>
@@ -184,6 +189,8 @@ export const ChangeEntity = z.enum([
   'modifier_group',
   'store_item',
   'stock_level',
+  /** People who can sign in at this store's registers with a PIN (`StaffMember`). */
+  'staff',
 ])
 export type ChangeEntity = z.infer<typeof ChangeEntity>
 

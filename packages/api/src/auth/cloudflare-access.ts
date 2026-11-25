@@ -41,7 +41,17 @@ export function cloudflareAccess<E = unknown>(options: CloudflareAccessOptions<E
       const email = typeof payload.email === 'string' ? payload.email.toLowerCase() : null
       const commonName = typeof payload.common_name === 'string' ? payload.common_name : null
       const subject = email ?? (commonName ? `service-token:${commonName}` : null)
-      return subject ? { kind: 'staff', subject, claims: payload } : null
+      if (!subject) return null
+      // Access only issues identity tokens for emails it has verified.
+      return email
+        ? {
+            kind: 'staff',
+            subject,
+            claims: payload,
+            email: email.toLowerCase(),
+            emailVerified: true,
+          }
+        : { kind: 'staff', subject, claims: payload }
     },
   }
 }

@@ -32,3 +32,10 @@ export function newPairingCode(): string {
 
 /** Normalise what a person typed: case, spaces and dashes don't matter. */
 export const normalisePairingCode = (code: string) => code.toUpperCase().replace(/[\s-]/g, '')
+
+/** Invitation tokens: 32 random bytes, base64url, with a recognisable prefix. */
+export const INVITATION_TOKEN_PREFIX = 'tala_i_'
+
+export function newInvitationToken(): string {
+  return INVITATION_TOKEN_PREFIX + newTerminalToken().slice(TERMINAL_TOKEN_PREFIX.length)
+}

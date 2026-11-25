@@ -21,7 +21,15 @@ describe('authentication', () => {
   it('accepts a valid OIDC token', async () => {
     const res = await call({ bearer: await sign('alice') }, 'GET', '/v1/me')
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ kind: 'staff', subject: 'alice', memberships: [] })
+    expect(res.body).toEqual({
+      kind: 'staff',
+      subject: 'alice',
+      email: null,
+      emailVerified: false,
+      name: null,
+      canCreateTenant: false,
+      memberships: [],
+    })
   })
 
   it.each([

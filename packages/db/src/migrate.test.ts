@@ -35,7 +35,7 @@ describe('tala-db migrate', () => {
 
   it('serialises concurrent runs with an advisory lock', async () => {
     const results = await Promise.all([1, 2, 3].map(() => migrate({ url: TEST_URL })))
-    expect(results.flat()).toEqual(['0001_init'])
+    expect(results.flat()).toEqual((await loadMigrations()).map((m) => m.name))
   })
 
   it('reports status', async () => {
@@ -53,22 +53,22 @@ describe('tala-db migrate', () => {
 
   it('refuses when the database is ahead of this package', async () => {
     const dir = await copyOfMigrations()
-    await writeFile(join(dir, '0002_future.sql'), 'SELECT 1;')
+    await writeFile(join(dir, '9999_future.sql'), 'SELECT 1;')
     await migrate({ url: TEST_URL, migrationsDir: dir })
-    await expect(migrate({ url: TEST_URL })).rejects.toThrow(/does not know: 0002_future/)
+    await expect(migrate({ url: TEST_URL })).rejects.toThrow(/does not know: 9999_future/)
   })
 
   it('rolls back a failing migration entirely', async () => {
     const dir = await copyOfMigrations()
-    await writeFile(join(dir, '0002_broken.sql'), 'CREATE TABLE tala.half (id int); SELECT nope;')
+    await writeFile(join(dir, '9999_broken.sql'), 'CREATE TABLE tala.half (id int); SELECT nope;')
     await expect(migrate({ url: TEST_URL, migrationsDir: dir })).rejects.toBeInstanceOf(
       MigrationError,
     )
     expect(
       await query("SELECT 1 FROM information_schema.tables WHERE table_name = 'half'"),
     ).toEqual([])
-    const names = await query<{ name: string }>('SELECT name FROM tala._migrations')
-    expect(names.map((r) => r.name)).toEqual(['0001_init'])
+    const names = await query<{ name: string }>('SELECT name FROM tala._migrations ORDER BY name')
+    expect(names.map((r) => r.name)).toEqual((await loadMigrations()).map((m) => m.name))
   })
 
   it('rejects badly named files', async () => {

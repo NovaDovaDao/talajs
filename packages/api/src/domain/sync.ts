@@ -28,6 +28,7 @@ import {
   type StockTake,
   takeStock,
 } from './orders.js'
+import { loadStaff, pinActor } from './pins.js'
 import { getStockLevel } from './stock.js'
 import { getStore } from './stores.js'
 import { getTaxRate } from './tax-rates.js'
@@ -655,7 +656,11 @@ export async function pushMutations(
   mutations: SyncMutation[],
 ) {
   const results: SyncMutationResult[] = []
-  for (const mutation of mutations) results.push(await applyMutation(ctx, terminal, mutation))
+  for (const mutation of mutations) {
+    // A PIN-identified person is recorded as the actor; it's attribution only and grants nothing.
+    const actor = await pinActor(ctx, terminal, mutation.actorMembershipId)
+    results.push(await applyMutation(actor ? { ...ctx, actor } : ctx, terminal, mutation))
+  }
   return { results }
 }
 
@@ -671,6 +676,7 @@ const loaders: Record<
   item: (ctx, id) => getItem(ctx, id),
   modifier_group: (ctx, id) => getModifierGroup(ctx, id),
   stock_level: (ctx, id) => getStockLevel(ctx, id),
+  staff: (ctx, id) => loadStaff(ctx, id),
   store_item: async (ctx, itemId, storeId) =>
     storeId
       ? ctx.db.storeItem.findUnique({

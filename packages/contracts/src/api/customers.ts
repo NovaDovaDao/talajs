@@ -1,12 +1,8 @@
 import { z } from 'zod'
 import { Id } from '../ids.js'
-import { Name, Timestamp } from './common.js'
+import { Email, Name, Timestamp } from './common.js'
 import { OrderStatus } from './orders.js'
 
-const Email = z
-  .email()
-  .max(320)
-  .transform((e) => e.toLowerCase())
 const Phone = z.string().trim().min(3).max(32)
 const TagName = z.string().trim().min(1).max(64)
 

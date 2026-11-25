@@ -55,8 +55,16 @@ export function oidc<E = unknown>(options: OidcOptions<E>): AuthAdapter<E> {
         audience: resolveConfig(options.audience, c.env),
       })
       const subject = payload?.[claim]
+      const email = typeof payload?.email === 'string' ? payload.email.toLowerCase() : undefined
+      const name = typeof payload?.name === 'string' ? payload.name : undefined
       return typeof subject === 'string' && subject
-        ? { kind: 'staff', subject, claims: payload ?? {} }
+        ? {
+            kind: 'staff',
+            subject,
+            claims: payload ?? {},
+            ...(email ? { email, emailVerified: payload?.email_verified === true } : {}),
+            ...(name ? { name } : {}),
+          }
         : null
     },
   }

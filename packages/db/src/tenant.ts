@@ -8,7 +8,7 @@ import type { Prisma, PrismaClient } from './generated/node/client.js'
  * - adds `tenantId` to `where` (reads, updates, deletes, counts, aggregates),
  * - sets `tenantId` on created rows (`create`, `createMany`, `upsert`),
  * - rejects any attempt to write a different `tenantId`,
- * - refuses models that aren't tenant-scoped (`ProviderEvent`), and exposes the `Tenant`
+ * - refuses models that aren't tenant-scoped (`ProviderEvent`, the `tala_auth` models), and exposes the `Tenant`
  *   model read-only, limited to the current tenant.
  *
  * Use unchecked (scalar) inputs, e.g. `{ storeId }` rather than `{ store: { connect } }`.
@@ -50,6 +50,14 @@ const MODEL_SCOPE: Record<Prisma.ModelName, Scope> = {
   ReviewItem: 'tenant-owned',
   ChangeLog: 'tenant-owned',
   DomainEvent: 'tenant-owned',
+  Invitation: 'tenant-owned',
+  AuditLog: 'tenant-owned',
+  // People and their sessions belong to no single tenant (see @talajs/auth).
+  AuthUser: 'system',
+  AuthSession: 'system',
+  AuthAccount: 'system',
+  AuthVerification: 'system',
+  AuthRateLimit: 'system',
 }
 
 export class TenantScopeError extends Error {
