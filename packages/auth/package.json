@@ -1,0 +1,41 @@
+{
+  "name": "@talajs/auth",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Optional built-in merchant sign-in for Tala, powered by Better Auth.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@talajs/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@talajs/api": "workspace:*",
+    "@talajs/contracts": "workspace:*",
+    "@talajs/db": "workspace:*",
+    "better-auth": "1.7.27"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.8.2",
+    "@cloudflare/workers-types": "^5.20261118.1",
+    "@types/pg": "^8.23.1",
+    "hono": "^4.13.18",
+    "pg": "^8.23.1",
+    "wrangler": "4.162.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

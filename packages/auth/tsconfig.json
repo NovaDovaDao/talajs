@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "lib": ["ES2024"],
+    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-plugin/types"],
+    "customConditions": ["workerd"],
+    // Zod's optional outputs (`T | undefined`) meet Prisma's optional inputs constantly here;
+    // `strict` stays on.
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["src", "test"]
+}
