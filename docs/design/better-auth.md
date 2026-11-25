@@ -1,12 +1,12 @@
 # Design: built-in merchant sign-in with Better Auth
 
-Status: **draft, awaiting review** (2026-11-24). Nothing here is implemented yet.
+Status: **approved** (2026-11-24), with the decisions in §10. Implementation starts with the spike in §9.
 
 ## 1. Why
 
 Today staff identity comes only from Cloudflare Access, OIDC or a service token, and `docs/PLAN.md` §2.2 says "Tala never issues its own staff sessions." That suits platform operators and enterprises with an identity provider. It doesn't suit the people who use Tala day to day: a café owner can't be expected to set up a Zero Trust application or an IdP, and baristas need to sign up from an invite and reset a forgotten password on their own.
 
-**Decision (proposed):** add an optional, first-party Better Auth integration. It becomes the default way merchant owners and staff sign in. Access, OIDC and service tokens stay for operators, automation and enterprises. PLAN.md gets a new decision recording the reversal.
+**Decision:** add an optional, first-party Better Auth integration. It becomes the default way merchant owners and staff sign in. Access, OIDC and service tokens stay for operators, automation and enterprises. PLAN.md gets a new decision recording the reversal.
 
 **What doesn't change:** Better Auth answers only "who is this person?". Authorization stays in Tala's `membership` table (OWNER, MANAGER or STAFF, plus `storeIds`), checked on every request as today. Better Auth's organization plugin is not used (§6).
 
@@ -44,7 +44,7 @@ const auth = createTalaAuth<Env>({
   baseURL: (env) => `${env.PUBLIC_ORIGIN}/tala/auth`,   // basePath comes from the URL path
   trustedOrigins: [],                   // same origin is always trusted
   mailer: (env) => resend({ apiKey: env.RESEND_API_KEY, from: 'Café <hello@cafe.example>' }),
-  methods: { password: true, magicLink: true, google: undefined },
+  methods: { magicLink: true, password: false, google: undefined },   // password needs Workers Paid (§10.6)
 })
 
 app.on(['GET', 'POST'], '/tala/auth/*', (c) => auth.handler(c.req.raw, c.env, c.executionCtx))
@@ -204,25 +204,13 @@ The terminal token authenticates the *device*. A PIN identifies the *person* at 
 
 Tests in workerd cover the brief's list: session validation, invite accept with a matching email and rejection on a mismatch, cross-tenant isolation, revocation, PIN lockout. They also cover invite-only sign-up and the rate limiter's atomicity under concurrency.
 
-## 10. Open questions
+## 10. Decisions (approved 2026-11-24)
 
-1. **Package:** a separate `@talajs/auth` (recommended, §3) or a subpath of `@talajs/api`?
-2. **Schema:** a dedicated `tala_auth` (recommended, §4.1) or the `tala` schema?
-3. **Sign-in methods first:** email + password (with verification and reset) plus magic link, as you suggested. Google is wired but off by default. Agreed?
-4. **Self-serve business sign-up:** recommend shipping the `allowSelfServeTenants` flag (default off) in this release. It's small: a verified-email check, the creator becomes OWNER, at most N businesses per person. Or defer?
-5. **PIN policy:**
-   - 4–6 digits, 4 by default and configurable per tenant;
-   - unique within a store;
-   - 5 failures → 15-minute lock per register;
-   - a manager can reset a PIN.
-   OK?
-6. **Workers plan and password hashing (new).** Secure password hashing (scrypt or PBKDF2 at recommended strength) takes far more than Workers Free's 10 ms CPU per request, so password sign-in effectively needs **Workers Paid**. Magic link and email codes involve no hashing and work on Free. Options:
-   - (a) require Paid for password sign-in and document it;
-   - (b) make magic link the default and password opt-in;
-   - (c) weaken hashing (not recommended).
-   Which plan is your first consumer on?
-7. **Operators vs merchants on one hostname (new).** If Cloudflare Access protects `/admin` or `/tala`, merchants can never reach the Better Auth sign-in. Recommendation:
-   - merchants use the public hostname with Better Auth;
-   - operators use a separate Access-protected hostname routed to the same Worker, or service tokens and OIDC.
-   OK?
-8. **Audit log scope (new):** a tenant-scoped `audit_log` table for invitations, memberships and PINs (§5.1), with sign-in history from Better Auth's sessions. Enough, or should sign-ins be copied into the audit log too?
+1. **Package:** a separate `@talajs/auth` (§3).
+2. **Schema:** a dedicated `tala_auth` schema (§4.1).
+3. **Sign-in methods:** magic link and email + password (with verification and reset). Google is wired but off by default.
+4. **Self-serve business sign-up:** ships in this release behind `allowSelfServeTenants`, off by default.
+5. **PIN policy:** 4–6 digits (4 by default, configurable per tenant), unique within a store, 5 failures lock the register's PIN entry for 15 minutes, and a manager can reset a PIN.
+6. **Workers plan:** option (b). **Magic link is the default** and works on Workers Free. Password sign-in is opt-in (`methods.password: true`) and documented as needing Workers Paid for its hashing CPU.
+7. **Operators vs merchants:** merchants use the public hostname with Better Auth; operators use a separate Access-protected hostname routed to the same Worker, or service tokens and OIDC.
+8. **Audit log:** tenant-scoped `audit_log` for invitations, memberships and PINs. Sign-in history comes from Better Auth's session rows.
