@@ -32,6 +32,9 @@ importers:
       '@talajs/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@talajs/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@talajs/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
